@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+
+  /* ==========================
+      LAHI BRAND COLORS
+     ========================== */
+
+  --background: #F8F7F4;
+  --surface: #FFFFFF;
+
+  --primary: #111111;
+  --secondary: #444444;
+  --muted: #777777;
+
+  --accent: #B08D57;
+
+  --border: #E8E8E8;
+
+  /* ==========================
+      TYPOGRAPHY
+     ========================== */
+
+  --font-heading: "Playfair Display", serif;
+  --font-body: "Inter", sans-serif;
+
+  /* ==========================
+      SPACING
+     ========================== */
+
+  --section-padding: 6rem;
+
+  /* ==========================
+      RADIUS
+     ========================== */
+
+  --radius: 12px;
+
+  /* ==========================
+      TRANSITIONS
+     ========================== */
+
+  --transition: 0.3s ease;
+}
+
+body {
+  background: var(--background);
+  color: var(--primary);
+  font-family: var(--font-body);
+}
