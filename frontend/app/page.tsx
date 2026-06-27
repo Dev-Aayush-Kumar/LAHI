@@ -1,15 +1,11 @@
 import Navbar from "@/components/Navbar";
+import { Hero } from "@/components/Home";
 
 export default function Home() {
   return (
     <>
       <Navbar />
-
-      <main className="max-w-7xl mx-auto px-6 py-20">
-        <h1 className="text-5xl font-bold">
-          LAHI
-        </h1>
-      </main>
+      <Hero />
     </>
   );
 }
