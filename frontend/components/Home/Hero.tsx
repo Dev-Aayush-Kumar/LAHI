@@ -1,3 +1,4 @@
+import Button from "@/components/Shared/Button";
 export default function Hero() {
   return (
     <section className="bg-[#F8F6F2]">
@@ -21,13 +22,13 @@ export default function Hero() {
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
-            <button className="rounded-2xl bg-black px-7 py-4 font-medium text-white transition hover:opacity-80">
-              Try LAHI
-            </button>
+            <Button>
+              Try It On
+            </Button>
 
-            <button className="rounded-2xl border border-gray-300 px-7 py-4 font-medium transition hover:bg-white">
+            <Button variant="secondary">
               Explore Collection
-            </button>
+            </Button>
           </div>
         </div>
         <div className="mt-8 flex flex-col gap-3 text-gray-600">

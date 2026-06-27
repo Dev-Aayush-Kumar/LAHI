@@ -1,0 +1,48 @@
+import { Product } from "@/types/product";
+
+export const products: Product[] = [
+  {
+    id: 1,
+    brand: "Nike",
+    name: "Air Max 270",
+    price: 6999,
+    originalPrice: 8999,
+    rating: 4.8,
+    image: "/images/products/nike-airmax270.jpg",
+    category: "Footwear",
+    featured: true,
+  },
+  {
+    id: 2,
+    brand: "Adidas",
+    name: "Ultraboost Light",
+    price: 8999,
+    originalPrice: 10999,
+    rating: 4.7,
+    image: "/images/products/adidas-ultraboost.jpg",
+    category: "Footwear",
+    featured: true,
+  },
+  {
+    id: 3,
+    brand: "Puma",
+    name: "RS-X",
+    price: 5999,
+    originalPrice: 7999,
+    rating: 4.6,
+    image: "/images/products/puma-rsx.jpg",
+    category: "Footwear",
+    featured: true,
+  },
+  {
+    id: 4,
+    brand: "Levi's",
+    name: "Slim Fit Denim Jacket",
+    price: 4499,
+    originalPrice: 5999,
+    rating: 4.9,
+    image: "/images/products/levis-denim-jacket.jpg",
+    category: "Men",
+    featured: true,
+  },
+];
