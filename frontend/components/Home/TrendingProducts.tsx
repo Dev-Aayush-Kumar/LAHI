@@ -1,15 +1,15 @@
 import ProductCard from "@/components/Product/ProductCard";
 import { products } from "@/data/products";
-export default function FeaturedProducts() {
-  const featuredProducts = products.filter(
-  (product) => product.featured
+export default function TrendingProducts() {
+  const TrendingProducts = products.filter(
+  (product) => product.isTrending
 );
   return (
     <section className="py-20">
       <div className="mx-auto max-w-7xl px-6">
 
         <h2 className="text-center text-4xl font-bold">
-          Featured Products
+          Trending Products
         </h2>
 
         <p className="mx-auto mt-4 max-w-2xl text-center text-gray-600">

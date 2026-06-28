@@ -7,5 +7,5 @@ export interface Product {
   rating: number;
   image: string;
   category: string;
-  featured: boolean;
+  isTrending: boolean;
 }

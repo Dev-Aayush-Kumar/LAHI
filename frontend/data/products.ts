@@ -10,7 +10,7 @@ export const products: Product[] = [
     rating: 4.8,
     image: "/images/products/nike-airmax270.jpg",
     category: "Footwear",
-    featured: true,
+    isTrending: true,
   },
   {
     id: 2,
@@ -21,7 +21,7 @@ export const products: Product[] = [
     rating: 4.7,
     image: "/images/products/adidas-ultraboost.jpg",
     category: "Footwear",
-    featured: true,
+    isTrending: true,
   },
   {
     id: 3,
@@ -32,7 +32,7 @@ export const products: Product[] = [
     rating: 4.6,
     image: "/images/products/puma-rsx.jpg",
     category: "Footwear",
-    featured: true,
+    isTrending: true,
   },
   {
     id: 4,
@@ -43,6 +43,6 @@ export const products: Product[] = [
     rating: 4.9,
     image: "/images/products/levis-denim-jacket.jpg",
     category: "Men",
-    featured: true,
+    isTrending: true,
   },
 ];
