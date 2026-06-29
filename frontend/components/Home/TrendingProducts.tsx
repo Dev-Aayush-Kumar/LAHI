@@ -1,9 +1,10 @@
 import ProductCard from "@/components/Product/ProductCard";
-import { products } from "@/data/products";
-export default function TrendingProducts() {
-  const TrendingProducts = products.filter(
-  (product) => product.isTrending
-);
+
+import { getFeaturedProducts } from "@/lib/actions/products";
+
+export default async function TrendingProducts() {
+  const products = await getFeaturedProducts();
+
   return (
     <section className="py-20">
       <div className="mx-auto max-w-7xl px-6">
@@ -19,8 +20,8 @@ export default function TrendingProducts() {
         <div className="mt-14 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
           {products.map((product) => (
             <ProductCard
-              key={product.name}
-              {...product}
+              key={product.id}
+              product={product}
             />
           ))}
         </div>

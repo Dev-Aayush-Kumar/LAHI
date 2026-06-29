@@ -1,61 +1,96 @@
 import Button from "@/components/Shared/Button";
 import Card from "@/components/Shared/Card";
-import { Product } from "@/types/product";
+
+type ProductCardProps = {
+  product: {
+    id: string;
+    name: string;
+    sellingPrice: any;
+    compareAtPrice: any | null;
+
+    brand: {
+      name: string;
+    };
+
+    images: {
+      imageUrl: string;
+    }[];
+  };
+};
 
 export default function ProductCard({
-  brand,
-  name,
-  price,
-  originalPrice,
-  rating,
-}: Product) {
-  const discount = Math.round(
-    ((originalPrice - price) / originalPrice) * 100
-  );
+  product,
+}: ProductCardProps) {
+  const sellingPrice = Number(product.sellingPrice);
+
+  const compareAtPrice = product.compareAtPrice
+    ? Number(product.compareAtPrice)
+    : null;
+
+  const discount =
+    compareAtPrice && compareAtPrice > sellingPrice
+      ? Math.round(
+          ((compareAtPrice - sellingPrice) /
+            compareAtPrice) *
+            100
+        )
+      : 0;
 
   return (
     <Card className="overflow-hidden">
+
       <div className="relative flex h-72 items-center justify-center rounded-t-3xl bg-gradient-to-br from-gray-100 via-white to-gray-200">
-        <div className="text-center">
-          <div className="text-7xl">👕</div>
-          <p className="mt-4 text-sm font-medium text-gray-500">
-            Product Image
-          </p>
+
+        {product.images.length > 0 ? (
+          <img
+            src={product.images[0].imageUrl}
+            alt={product.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="text-center">
+            <div className="text-7xl">👕</div>
+
+            <p className="mt-4 text-sm text-gray-500">
+              Product Image
+            </p>
+          </div>
+        )}
+
+        <button className="absolute right-4 top-4 rounded-full bg-white p-2 shadow-md transition hover:scale-110">
+          ♡
+        </button>
+
       </div>
 
-      <button
-        className="absolute right-4 top-4 rounded-full bg-white p-2 shadow-md transition-all duration-300 hover:scale-110"
-      >
-       ♡
-      </button>
-
-</div>
-
       <div className="p-6">
+
         <p className="text-sm text-gray-500">
-          {brand}
+          {product.brand.name}
         </p>
 
         <h3 className="mt-1 text-xl font-semibold">
-          {name}
+          {product.name}
         </h3>
 
-        <p className="mt-2 text-sm">
-          ⭐ {rating}
-        </p>
-
         <div className="mt-4 flex items-center gap-3">
+
           <span className="text-xl font-bold">
-            ₹{price.toLocaleString()}
+            ₹{sellingPrice.toLocaleString()}
           </span>
 
-          <span className="text-gray-400 line-through">
-            ₹{originalPrice.toLocaleString()}
-          </span>
+          {compareAtPrice && (
+            <>
+              <span className="text-gray-400 line-through">
+                ₹{compareAtPrice.toLocaleString()}
+              </span>
 
-          <span className="text-green-600">
-            {discount}% OFF
-          </span>
+              <span className="text-green-600">
+                {discount}% OFF
+              </span>
+            </>
+          )}
+
         </div>
 
         <div className="mt-6">
@@ -69,7 +104,9 @@ export default function ProductCard({
             Add to Cart
           </Button>
         </div>
+
       </div>
+
     </Card>
   );
 }
