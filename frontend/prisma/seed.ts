@@ -82,6 +82,15 @@ async function main() {
       isPublished: true,
       isFeatured: true,
       isActive: true,
+      images: {
+        create: [
+          {
+            imageUrl:
+              "/products/oversized-cotton-tshirt/front.jpg",
+            sortOrder: 1,
+          },
+        ],
+      },
     },
   });
 
@@ -99,6 +108,15 @@ async function main() {
       isPublished: true,
       isFeatured: true,
       isActive: true,
+      images: {
+        create: [
+          {
+            imageUrl:
+              "/products/womens-summer-dress/front.jpg",
+            sortOrder: 1,
+          },
+        ],
+      },
     },
   });
 
@@ -116,6 +134,15 @@ async function main() {
       isPublished: true,
       isFeatured: true,
       isActive: true,
+      images: {
+        create: [
+          {
+            imageUrl:
+              "/products/nike-air-sneakers/right-foot.jpg",
+            sortOrder: 1,
+          },
+        ],
+      },
     },
   });
 
