@@ -1,9 +1,11 @@
+import ProductCardImage from "@/components/Product/ProductCardImage";
 import Button from "@/components/Shared/Button";
 import Card from "@/components/Shared/Card";
 
 type ProductCardProps = {
   product: {
     id: string;
+    slug: string;
     name: string;
     sellingPrice: any;
     compareAtPrice: any | null;
@@ -39,30 +41,21 @@ export default function ProductCard({
   return (
     <Card className="overflow-hidden">
 
-      <div className="relative flex h-72 items-center justify-center rounded-t-3xl bg-gradient-to-br from-gray-100 via-white to-gray-200">
+      <div className="relative">
 
-        {product.images.length > 0 ? (
-          <img
-            src={product.images[0].imageUrl}
-            alt={product.name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="text-center">
-            <div className="text-7xl">👕</div>
+        <ProductCardImage
+          slug={product.slug}
+          images={product.images}
+          productName={product.name}
+        />
 
-            <p className="mt-4 text-sm text-gray-500">
-              Product Image
-            </p>
-          </div>
-        )}
-
-        <button className="absolute right-4 top-4 rounded-full bg-white p-2 shadow-md transition hover:scale-110">
+        <button
+          className="absolute right-4 top-4 z-10 rounded-full bg-white p-2 shadow-md transition hover:scale-110"
+        >
           ♡
         </button>
 
       </div>
-
       <div className="p-6">
 
         <p className="text-sm text-gray-500">

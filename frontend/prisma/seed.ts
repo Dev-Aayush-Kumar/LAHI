@@ -1,7 +1,13 @@
 import "dotenv/config";
-import { calculatePricing } from "../lib/pricing";
+
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+
+import { BRANDS } from "./seed-data/brands";
+import { CATEGORIES } from "./seed-data/categories";
+import { PRODUCTS } from "./seed-data/products";
+
+import { createProduct } from "./seed-utils/createProduct";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -10,7 +16,9 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({
   adapter,
 });
+
 async function main() {
+
   console.log("Cleaning database...");
 
   await prisma.inventory.deleteMany();
@@ -22,131 +30,54 @@ async function main() {
 
   console.log("Creating categories...");
 
-  const women = await prisma.category.create({
-    data: {
-      name: "Women",
-      slug: "women",
-    },
-  });
+  const categoryMap: Record<string, string> = {};
 
-  const men = await prisma.category.create({
-    data: {
-      name: "Men",
-      slug: "men",
-    },
-  });
+  for (const category of CATEGORIES) {
 
-  const kids = await prisma.category.create({
-    data: {
-      name: "Kids",
-      slug: "kids",
-    },
-  });
+    const created = await prisma.category.create({
+      data: category,
+    });
+
+    categoryMap[category.slug] = created.id;
+  }
 
   console.log("Creating brands...");
 
-  const zara = await prisma.brand.create({
-    data: {
-      name: "Zara",
-      slug: "zara",
-    },
-  });
+  const brandMap: Record<string, string> = {};
 
-  const hnm = await prisma.brand.create({
-    data: {
-      name: "H&M",
-      slug: "hm",
-    },
-  });
+  for (const brand of BRANDS) {
 
-  const nike = await prisma.brand.create({
-    data: {
-      name: "Nike",
-      slug: "nike",
-    },
-  });
+    const created = await prisma.brand.create({
+      data: brand,
+    });
 
-  console.log("Creating first products...");
+    brandMap[brand.slug] = created.id;
+  }
 
-  await prisma.product.create({
-    data: {
-      name: "Oversized Cotton T-Shirt",
-      slug: "oversized-cotton-tshirt",
+  console.log("Creating products...");
 
-      description:
-        "Premium oversized cotton t-shirt with relaxed fit.",
+  for (const product of PRODUCTS) {
 
-      categoryId: men.id,
-      brandId: hnm.id,
-      ...calculatePricing(420),
-      isPublished: true,
-      isFeatured: true,
-      isActive: true,
-      images: {
-        create: [
-          {
-            imageUrl:
-              "/products/oversized-cotton-tshirt/front.jpg",
-            sortOrder: 1,
-          },
-        ],
-      },
-    },
-  });
+    await createProduct(
 
-  await prisma.product.create({
-    data: {
-      name: "Women's Summer Dress",
-      slug: "womens-summer-dress",
+      prisma,
 
-      description:
-        "Elegant floral summer dress for casual outings.",
+      product,
 
-      categoryId: women.id,
-      brandId: zara.id,
-      ...calculatePricing(650),
-      isPublished: true,
-      isFeatured: true,
-      isActive: true,
-      images: {
-        create: [
-          {
-            imageUrl:
-              "/products/womens-summer-dress/front.jpg",
-            sortOrder: 1,
-          },
-        ],
-      },
-    },
-  });
+      categoryMap,
 
-  await prisma.product.create({
-    data: {
-      name: "Nike Air Sneakers",
-      slug: "nike-air-sneakers",
+      brandMap
 
-      description:
-        "Lightweight everyday sneakers with premium comfort.",
+    );
 
-      categoryId: men.id,
-      brandId: nike.id,
-      ...calculatePricing(900),
-      isPublished: true,
-      isFeatured: true,
-      isActive: true,
-      images: {
-        create: [
-          {
-            imageUrl:
-              "/products/nike-air-sneakers/right-foot.jpg",
-            sortOrder: 1,
-          },
-        ],
-      },
-    },
-  });
+    console.log(`✔ ${product.name}`);
 
-  console.log("Seed completed.");
+  }
+
+  console.log("");
+
+  console.log("Seed completed successfully.");
+
 }
 
 main()
