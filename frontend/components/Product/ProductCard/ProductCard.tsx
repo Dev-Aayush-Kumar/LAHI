@@ -1,6 +1,8 @@
 import ProductCardImage from "@/components/Product/ProductCardImage";
 import Button from "@/components/Shared/Button";
 import Card from "@/components/Shared/Card";
+import { addToCart } from "@/actions/cart";
+import AddToCartButton from "../AddToCartButton";
 
 type ProductCardProps = {
   product: {
@@ -16,6 +18,10 @@ type ProductCardProps = {
 
     images: {
       imageUrl: string;
+    }[];
+
+    variants: {
+      id: string;
     }[];
   };
 };
@@ -93,9 +99,25 @@ export default function ProductCard({
         </div>
 
         <div className="mt-3">
-          <Button variant="secondary">
-            Add to Cart
-          </Button>
+
+          <form action={addToCart}>
+
+            <input
+              type="hidden"
+              name="variantId"
+              value={product.variants[0].id}
+            />
+
+            <input
+              type="hidden"
+              name="quantity"
+              value="1"
+            />
+
+            <AddToCartButton />
+
+          </form>
+
         </div>
 
       </div>

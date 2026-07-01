@@ -1,5 +1,5 @@
 import Link from "next/link";
-
+import { getCartItemCount } from "@/lib/cartCount";
 import {
   Search,
   Heart,
@@ -16,11 +16,11 @@ type NavIconsProps = {
   } | null;
 };
 
-export default function NavIcons({
+export default async function NavIcons({
   user,
 }: Readonly<NavIconsProps>) {
   const isLoggedIn = !!user;
-
+  const cartCount = await getCartItemCount();
   return (
     <div className="flex items-center gap-5">
       <button
@@ -41,10 +41,32 @@ export default function NavIcons({
 
       <Link
         href="/cart"
-        className="transition hover:text-[var(--accent)]"
+        className="relative transition hover:text-[var(--accent)]"
         aria-label="Shopping Bag"
       >
         <ShoppingBag size={20} />
+
+        {cartCount > 0 && (
+          <span
+            className="
+            absolute
+            -right-2
+            -top-2
+            flex
+            h-5
+            w-5
+            items-center
+            justify-center
+            rounded-full
+            bg-black
+            text-[10px]
+            font-bold
+            text-white
+            "
+          >
+            {cartCount}
+          </span>
+        )}
       </Link>
 
       {isLoggedIn ? (

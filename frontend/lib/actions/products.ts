@@ -11,7 +11,17 @@ export async function getFeaturedProducts() {
     include: {
       brand: true,
       category: true,
-      images: true,
+      images: {
+        orderBy: {
+          sortOrder: "asc",
+        },
+      },
+      variants: {
+        where: {
+          isDefault: true,
+        },
+        take: 1,
+      },
     },
 
     orderBy: {

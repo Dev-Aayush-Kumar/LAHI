@@ -1,5 +1,5 @@
 "use server";
-
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCartSessionId } from "@/lib/cart";
 
@@ -59,4 +59,5 @@ if (existingItem) {
 
     console.log("Created new cart item");
   }
+  revalidatePath("/", "layout");
 }
