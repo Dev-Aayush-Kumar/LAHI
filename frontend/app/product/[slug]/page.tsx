@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/Product/ProductCard";
 import ProductImageGallery from "@/components/Product/ProductImageGallery";
-
+import ProductInfo from "@/components/Product/ProductInfo";
 
 type Props = {
   params: Promise<{
@@ -34,6 +34,30 @@ export default async function ProductPage({
   if (!product) {
     notFound();
   }
+  const clientProduct = {
+    ...product,
+
+    dealerPrice: Number(product.dealerPrice),
+
+    markupPercent: Number(product.markupPercent),
+
+    sellingPrice: Number(product.sellingPrice),
+
+    compareAtPrice: product.compareAtPrice
+      ? Number(product.compareAtPrice)
+      : null,
+
+    discountPercent: product.discountPercent
+      ? Number(product.discountPercent)
+      : null,
+
+    rating: Number(product.rating),
+
+    variants: product.variants.map((variant) => ({
+      ...variant,
+      price: Number(variant.price),
+    })),
+  };
   const similarProducts = await prisma.product.findMany({
     where: {
       categoryId: product.categoryId,
@@ -72,87 +96,7 @@ export default async function ProductPage({
 
         {/* RIGHT : Product Details */}
 
-        <section>
-
-          <p className="text-lg text-gray-500">
-            {product.brand.name}
-          </p>
-
-          <h1 className="mt-2 text-5xl font-bold">
-            {product.name}
-          </h1>
-
-          <div className="mt-6 flex items-center gap-4">
-
-            <span className="text-4xl font-bold">
-              ₹{Number(product.sellingPrice).toLocaleString()}
-            </span>
-
-            {product.compareAtPrice && (
-              <span className="text-2xl text-gray-400 line-through">
-                ₹{Number(product.compareAtPrice).toLocaleString()}
-              </span>
-            )}
-
-          </div>
-
-          <div className="mt-10">
-
-            <h3 className="mb-3 font-semibold">
-              Sizes
-            </h3>
-
-            <div className="flex gap-3">
-
-              <button className="rounded-xl border px-5 py-3">
-                S
-              </button>
-
-              <button className="rounded-xl border px-5 py-3">
-                M
-              </button>
-
-              <button className="rounded-xl border px-5 py-3">
-                L
-              </button>
-
-              <button className="rounded-xl border px-5 py-3">
-                XL
-              </button>
-
-            </div>
-
-          </div>
-
-          <div className="mt-10">
-
-            <h3 className="mb-3 font-semibold">
-              Quantity
-            </h3>
-
-            <input
-              type="number"
-              min={1}
-              defaultValue={1}
-              className="w-24 rounded-xl border px-4 py-3"
-            />
-
-          </div>
-
-          <div className="mt-10 flex gap-4">
-
-            <button className="rounded-xl bg-black px-8 py-4 font-semibold text-white">
-              Add to Cart
-            </button>
-
-            <button className="rounded-xl border px-8 py-4 font-semibold">
-              Wishlist
-            </button>
-
-          </div>
-
-        </section>
-
+        <ProductInfo product={clientProduct} />
       </div>
 
       <section className="mt-20">
