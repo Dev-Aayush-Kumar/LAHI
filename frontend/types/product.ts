@@ -9,3 +9,23 @@ export interface Product {
   category: string;
   isTrending: boolean;
 }
+export type ProductCardProduct = {
+  id: string;
+  slug: string;
+  name: string;
+
+  sellingPrice: any;
+  compareAtPrice: any | null;
+
+  brand: {
+    name: string;
+  };
+
+  images: {
+    imageUrl: string;
+  }[];
+
+  variants: {
+    id: string;
+  }[];
+};

@@ -1,6 +1,6 @@
 import NavLinks from "./NavLinks";
 import NavIcons from "./NavIcons";
-
+import SearchBar from "@/components/Search/SearchBar";
 type NavbarProps = {
   user?: {
     id: string;
@@ -22,7 +22,11 @@ export default function Navbar({
 
         <NavLinks />
 
-        <NavIcons user={user} />
+        <div className="flex items-center gap-6">
+          <SearchBar />
+
+          <NavIcons user={user} />
+        </div>
       </nav>
     </header>
   );

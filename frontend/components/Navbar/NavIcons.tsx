@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getCartItemCount } from "@/lib/cartCount";
 import {
-  Search,
   Heart,
   ShoppingBag,
   User,
@@ -23,13 +22,6 @@ export default async function NavIcons({
   const cartCount = await getCartItemCount();
   return (
     <div className="flex items-center gap-5">
-      <button
-        type="button"
-        className="transition hover:text-[var(--accent)]"
-        aria-label="Search"
-      >
-        <Search size={20} />
-      </button>
 
       <Link
         href="/wishlist"

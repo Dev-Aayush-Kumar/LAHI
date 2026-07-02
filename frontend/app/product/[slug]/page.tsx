@@ -69,9 +69,17 @@ export default async function ProductPage({
     },
     include: {
       brand: true,
+
       images: {
         orderBy: {
           sortOrder: "asc",
+        },
+        take: 1,
+      },
+
+      variants: {
+        where: {
+          isDefault: true,
         },
         take: 1,
       },

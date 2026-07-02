@@ -25,10 +25,14 @@ type ProductCardProps = {
     }[];
   };
 };
-
 export default function ProductCard({
   product,
 }: ProductCardProps) {
+  const defaultVariant = product.variants.at(0);
+
+  if (!defaultVariant) {
+    return null;
+  }
   const sellingPrice = Number(product.sellingPrice);
 
   const compareAtPrice = product.compareAtPrice
@@ -105,7 +109,7 @@ export default function ProductCard({
             <input
               type="hidden"
               name="variantId"
-              value={product.variants[0].id}
+              value={defaultVariant.id}
             />
 
             <input
