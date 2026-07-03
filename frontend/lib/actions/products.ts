@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function getFeaturedProducts() {
-  return prisma.product.findMany({
+  const user = await getCurrentUser();
+
+  const products = await prisma.product.findMany({
     where: {
       isPublished: true,
       isFeatured: true,
@@ -11,17 +14,27 @@ export async function getFeaturedProducts() {
     include: {
       brand: true,
       category: true,
+
       images: {
         orderBy: {
           sortOrder: "asc",
         },
       },
+
       variants: {
         where: {
           isDefault: true,
         },
         take: 1,
       },
+
+      wishlistItems: user
+        ? {
+            where: {
+              userId: user.userId,
+            },
+          }
+        : false,
     },
 
     orderBy: {
@@ -30,4 +43,11 @@ export async function getFeaturedProducts() {
 
     take: 8,
   });
+
+  return products.map((product) => ({
+    ...product,
+
+    isWishlisted:
+      (product.wishlistItems?.length ?? 0) > 0,
+  }));
 }

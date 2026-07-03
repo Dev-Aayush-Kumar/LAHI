@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+
 import ProductCard from "@/components/Product/ProductCard";
 import ProductImageGallery from "@/components/Product/ProductImageGallery";
 import ProductInfo from "@/components/Product/ProductInfo";
+
+import { getCurrentUser } from "@/lib/auth";
 
 type Props = {
   params: Promise<{
@@ -14,6 +17,8 @@ export default async function ProductPage({
   params,
 }: Props) {
   const { slug } = await params;
+
+  const user = await getCurrentUser();
 
   const product = await prisma.product.findUnique({
     where: {
@@ -34,6 +39,7 @@ export default async function ProductPage({
   if (!product) {
     notFound();
   }
+
   const clientProduct = {
     ...product,
 
@@ -52,12 +58,16 @@ export default async function ProductPage({
       : null,
 
     rating: Number(product.rating),
+    id: product.id,
+
+    isWishlisted: false,
 
     variants: product.variants.map((variant) => ({
       ...variant,
       price: Number(variant.price),
     })),
   };
+
   const similarProducts = await prisma.product.findMany({
     where: {
       categoryId: product.categoryId,
@@ -67,6 +77,7 @@ export default async function ProductPage({
       isPublished: true,
       isActive: true,
     },
+
     include: {
       brand: true,
 
@@ -83,28 +94,51 @@ export default async function ProductPage({
         },
         take: 1,
       },
+
+      wishlistItems: user
+        ? {
+            where: {
+              userId: user.userId,
+            },
+          }
+        : false,
     },
+
     take: 8,
   });
+
+  const clientSimilarProducts = similarProducts.map(
+    (product) => ({
+      ...product,
+
+      sellingPrice: Number(product.sellingPrice),
+
+      compareAtPrice: product.compareAtPrice
+        ? Number(product.compareAtPrice)
+        : null,
+
+      isWishlisted:
+        (product.wishlistItems?.length ?? 0) > 0,
+    })
+  );
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">
-
       <div className="grid gap-12 lg:grid-cols-2">
 
         {/* LEFT : Images */}
 
         <section>
-
           <ProductImageGallery
             images={product.images}
             productName={product.name}
           />
-
         </section>
 
         {/* RIGHT : Product Details */}
 
         <ProductInfo product={clientProduct} />
+
       </div>
 
       <section className="mt-20">
@@ -143,7 +177,7 @@ export default async function ProductPage({
 
         <div className="mt-10 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
 
-          {similarProducts.map((product) => (
+          {clientSimilarProducts.map((product) => (
             <ProductCard
               key={product.id}
               product={product}

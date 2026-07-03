@@ -3,6 +3,7 @@ import Button from "@/components/Shared/Button";
 import Card from "@/components/Shared/Card";
 import { addToCart } from "@/actions/cart";
 import AddToCartButton from "../AddToCartButton";
+import WishlistButton from "./WishlistButton";
 
 type ProductCardProps = {
   product: {
@@ -23,6 +24,8 @@ type ProductCardProps = {
     variants: {
       id: string;
     }[];
+
+    isWishlisted: boolean;
   };
 };
 export default function ProductCard({
@@ -59,11 +62,10 @@ export default function ProductCard({
           productName={product.name}
         />
 
-        <button
-          className="absolute right-4 top-4 z-10 rounded-full bg-white p-2 shadow-md transition hover:scale-110"
-        >
-          ♡
-        </button>
+        <WishlistButton
+          productId={product.id}
+          isWishlisted={product.isWishlisted}
+        />
 
       </div>
       <div className="p-6">

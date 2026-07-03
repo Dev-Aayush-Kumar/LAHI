@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { addToCart } from "@/actions/cart";
+import WishlistButton from "@/components/Product/ProductCard/WishlistButton";
 
 type Variant = {
   id: string;
@@ -13,10 +14,12 @@ type Variant = {
 
 type Props = {
   product: {
+    id: string;
     name: string;
     sellingPrice: number;
     compareAtPrice: number | null;
     description: string;
+    isWishlisted: boolean;
 
     brand: {
       name: string;
@@ -74,20 +77,33 @@ export default function ProductInfo({
   return (
     <section>
 
-      <p className="text-lg text-gray-500">
-        {product.brand.name}
-      </p>
+      <div className="flex items-start justify-between gap-6">
 
-      <h1 className="mt-2 text-5xl font-bold">
-        {product.name}
-      </h1>
+        <div>
+
+          <p className="text-lg text-gray-500">
+            {product.brand.name}
+          </p>
+
+          <h1 className="mt-2 text-5xl font-bold">
+            {product.name}
+          </h1>
+
+        </div>
+
+        <WishlistButton
+          productId={product.id}
+          initialWishlisted={product.isWishlisted}
+        />
+
+      </div>
 
       <div className="mt-6 flex items-center gap-4">
 
         <span className="text-4xl font-bold">
           ₹{Number(
             selectedVariant?.price ??
-            product.sellingPrice
+              product.sellingPrice
           ).toLocaleString()}
         </span>
 
@@ -206,9 +222,10 @@ export default function ProductInfo({
 
       {/* BUTTONS */}
 
-      <div className="mt-10 flex gap-4">
+      <div className="mt-10">
 
         <form action={addToCart}>
+
           <input
             type="hidden"
             name="variantId"
@@ -220,20 +237,14 @@ export default function ProductInfo({
             name="quantity"
             value={quantity}
           />
+
           <button
-            className="rounded-xl bg-black px-8 py-4 font-semibold text-white"
+            className="rounded-xl bg-black px-8 py-4 font-semibold text-white transition hover:opacity-80 active:scale-95"
           >
             Add to Cart
           </button>
 
         </form>
-
-        <button
-          type="button"
-          className="rounded-xl border px-8 py-4 font-semibold"
-        >
-          Wishlist
-        </button>
 
       </div>
 
