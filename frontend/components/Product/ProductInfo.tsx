@@ -94,6 +94,7 @@ export default function ProductInfo({
         <WishlistButton
           productId={product.id}
           initialWishlisted={product.isWishlisted}
+          variant="inline"
         />
 
       </div>
@@ -222,7 +223,25 @@ export default function ProductInfo({
 
       {/* BUTTONS */}
 
-      <div className="mt-10">
+      <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+
+        <button
+          type="button"
+          className="
+            rounded-xl
+            border
+            border-black
+            px-8
+            py-4
+            font-semibold
+            transition
+            hover:bg-black
+            hover:text-white
+            active:scale-95
+          "
+        >
+          Try It On
+        </button>
 
         <form action={addToCart}>
 
@@ -239,9 +258,19 @@ export default function ProductInfo({
           />
 
           <button
-            className="rounded-xl bg-black px-8 py-4 font-semibold text-white transition hover:opacity-80 active:scale-95"
+            className="
+              rounded-xl
+              bg-black
+              px-8
+              py-4
+              font-semibold
+              text-white
+              transition
+              hover:opacity-80
+              active:scale-95
+            "
           >
-            Add to Cart
+            🛍 Add to Cart
           </button>
 
         </form>

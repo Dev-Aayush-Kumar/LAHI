@@ -22,6 +22,7 @@ export default async function CartPage() {
                     },
                     take: 1,
                   },
+                  wishlistItems: true,
                 },
               },
             },
@@ -48,6 +49,23 @@ export default async function CartPage() {
 
   const total =
     subtotal + shipping + tax;
+  const transformedCart = cart
+    ? {
+        ...cart,
+        items: cart.items.map((item) => ({
+          ...item,
+          variant: {
+            ...item.variant,
+            product: {
+              ...item.variant.product,
+              isWishlisted:
+                item.variant.product.wishlistItems.length >
+                0,
+            },
+          },
+        })),
+      }
+    : null;
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">
 
@@ -85,7 +103,7 @@ export default async function CartPage() {
 
           <div className="space-y-6 lg:col-span-2">
 
-            {cart.items.map((item) => (
+            {transformedCart!.items.map((item) => (
               <CartItem
                 key={item.id}
                 item={item}

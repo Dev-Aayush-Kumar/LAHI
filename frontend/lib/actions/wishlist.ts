@@ -4,13 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+type WishlistResult = {
+  success: boolean;
+  requiresLogin?: boolean;
+};
+
 export async function addToWishlist(
   productId: string
-) {
+): Promise<WishlistResult> {
   const user = await getCurrentUser();
 
   if (!user) {
-    throw new Error("Please login first.");
+    return {
+      success: false,
+      requiresLogin: true,
+    };
   }
 
   await prisma.wishlistItem.upsert({
@@ -30,15 +38,23 @@ export async function addToWishlist(
   revalidatePath("/");
   revalidatePath("/search");
   revalidatePath("/wishlist");
+  revalidatePath(`/product`);
+
+  return {
+    success: true,
+  };
 }
 
 export async function removeFromWishlist(
   productId: string
-) {
+): Promise<WishlistResult> {
   const user = await getCurrentUser();
 
   if (!user) {
-    throw new Error("Please login first.");
+    return {
+      success: false,
+      requiresLogin: true,
+    };
   }
 
   await prisma.wishlistItem.deleteMany({
@@ -51,4 +67,9 @@ export async function removeFromWishlist(
   revalidatePath("/");
   revalidatePath("/search");
   revalidatePath("/wishlist");
+  revalidatePath(`/product`);
+
+  return {
+    success: true,
+  };
 }

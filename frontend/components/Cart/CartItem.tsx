@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import QuantitySelector from "./QuantitySelector";
+import WishlistButton from "@/components/Product/ProductCard/WishlistButton";
 
 type Props = {
   item: {
@@ -11,8 +12,10 @@ type Props = {
       size: string;
       price: any;
       product: {
+        id: string;
         name: string;
         slug: string;
+        isWishlisted: boolean;
         images: {
           imageUrl: string;
         }[];
@@ -55,12 +58,41 @@ export default function CartItem({ item }: Props) {
 
         </Link>
 
-        <div className="mt-auto">
+        <div className="mt-auto space-y-4">
 
           <QuantitySelector
             cartItemId={item.id}
             quantity={item.quantity}
           />
+
+          <div className="flex flex-wrap gap-3">
+
+            <WishlistButton
+              productId={item.variant.product.id}
+              initialWishlisted={
+                item.variant.product.isWishlisted
+              }
+              variant="inline"
+            />
+
+            <button
+              type="button"
+              className="
+                rounded-xl
+                border
+                border-black
+                px-5
+                py-2
+                font-medium
+                transition
+                hover:bg-black
+                hover:text-white
+              "
+            >
+               Try It On
+            </button>
+
+          </div>
 
         </div>
 
