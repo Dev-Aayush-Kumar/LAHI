@@ -28,7 +28,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   wishlist WishlistItem[]
-  orders   Order[]
+  orders Order[]
 }
 
 model Category {
@@ -165,7 +165,7 @@ model Order {
 
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 model Cart {
   id String @id @default(cuid())
@@ -180,7 +180,6 @@ model Cart {
 
   items CartItem[]
 }
-
 model CartItem {
   id String @id @default(cuid())
 

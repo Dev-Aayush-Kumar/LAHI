@@ -61,3 +61,15 @@ if (existingItem) {
   }
   revalidatePath("/", "layout");
 }
+export async function removeCartItem(
+  cartItemId: string
+) {
+  await prisma.cartItem.delete({
+    where: {
+      id: cartItemId,
+    },
+  });
+
+  revalidatePath("/cart");
+  revalidatePath("/", "layout");
+}

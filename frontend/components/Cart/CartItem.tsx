@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import QuantitySelector from "./QuantitySelector";
 import WishlistButton from "@/components/Product/ProductCard/WishlistButton";
+import RemoveCartButton from "./RemoveCartButton";
+import MoveToWishlistButton from "./MoveToWishlistButton";
 
 type Props = {
   item: {
@@ -89,8 +91,16 @@ export default function CartItem({ item }: Props) {
                 hover:text-white
               "
             >
-               Try It On
+              Try It On
             </button>
+
+            <MoveToWishlistButton
+              cartItemId={item.id}
+            />
+
+            <RemoveCartButton
+              cartItemId={item.id}
+            />
 
           </div>
 

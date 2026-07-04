@@ -68,7 +68,84 @@ export async function POST(request: NextRequest) {
         lastLoginAt: new Date(),
       },
     });
+    const guestSessionId =
+      request.cookies.get("lahi_cart")?.value;
 
+    if (guestSessionId) {
+      const guestCart =
+        await prisma.cart.findFirst({
+          where: {
+            sessionId: guestSessionId,
+          },
+          include: {
+            items: true,
+          },
+        });
+
+      if (guestCart) {
+        const userCart =
+          await prisma.cart.findFirst({
+            where: {
+              userId: user.id,
+            },
+            include: {
+              items: true,
+            },
+          });
+
+        if (!userCart) {
+          // User has no cart
+          await prisma.cart.update({
+            where: {
+              id: guestCart.id,
+            },
+            data: {
+              userId: user.id,
+              sessionId: null,
+            },
+          });
+        } else {
+          // Merge guest items into existing cart
+          for (const guestItem of guestCart.items) {
+            const existing =
+              userCart.items.find(
+                (item) =>
+                  item.variantId === guestItem.variantId
+              );
+
+            if (existing) {
+              await prisma.cartItem.update({
+                where: {
+                  id: existing.id,
+                },
+                data: {
+                  quantity: {
+                    increment:
+                      guestItem.quantity,
+                  },
+                },
+              });
+            } else {
+              await prisma.cartItem.create({
+                data: {
+                  cartId: userCart.id,
+                  variantId:
+                    guestItem.variantId,
+                  quantity:
+                    guestItem.quantity,
+                },
+              });
+            }
+          }
+
+          await prisma.cart.delete({
+            where: {
+              id: guestCart.id,
+            },
+          });
+        }
+      }
+    }
     const token = await createSessionToken({
       userId: user.id,
       email: user.email,
@@ -94,7 +171,12 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: SESSION_DURATION,
     });
-
+    response.cookies.set({
+      name: "lahi_cart",
+      value: "",
+      path: "/",
+      maxAge: 0,
+    });
     return response;
   } catch (error) {
     console.error(error);
