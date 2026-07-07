@@ -8,148 +8,104 @@ datasource db {
 }
 
 model User {
-  id String @id @default(cuid())
-
-  fullName     String
-  email        String @unique
-  passwordHash String
-
-  profileImage String?
-
-  emailVerified Boolean @default(false)
-
-  sessionVersion Int @default(1)
-
-  accountStatus String @default("ACTIVE")
-
-  lastLoginAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  wishlist WishlistItem[]
-  orders Order[]
+  id             String         @id @default(cuid())
+  fullName       String
+  email          String         @unique
+  passwordHash   String
+  profileImage   String?
+  emailVerified  Boolean        @default(false)
+  sessionVersion Int            @default(1)
+  accountStatus  String         @default("ACTIVE")
+  lastLoginAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  orders         Order[]
+  wishlist       WishlistItem[]
+  addresses      Address[]
 }
 
 model Category {
-  id String @id @default(cuid())
-
-  name String @unique
-  slug String @unique
-
-  imageUrl String?
-
-  createdAt DateTime @default(now())
-
-  products Product[]
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  imageUrl  String?
+  createdAt DateTime  @default(now())
+  products  Product[]
 }
 
 model Brand {
-  id String @id @default(cuid())
-
-  name String @unique
-  slug String @unique
-
-  logoUrl String?
-
-  createdAt DateTime @default(now())
-
-  products Product[]
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  logoUrl   String?
+  createdAt DateTime  @default(now())
+  products  Product[]
 }
 
 model Product {
-  id String @id @default(cuid())
-
-  name String
-  slug String @unique
-
-  description String @db.Text
-
-  categoryId  String
-  brandId     String
-  gender      String
-  dealerPrice Decimal @db.Decimal(10, 2)
-
-  markupPercent Decimal @default(100) @db.Decimal(5, 2)
-
-  sellingPrice Decimal @db.Decimal(10, 2)
-
-  compareAtPrice Decimal? @db.Decimal(10, 2)
-
-  discountPercent Decimal? @db.Decimal(5, 2)
-
-  isPublished Boolean @default(false)
-  isFeatured  Boolean @default(false)
-  isActive    Boolean @default(true)
-  isTrending  Boolean @default(false)
-  rating      Decimal @default(4.5) @db.Decimal(2, 1)
-  reviewCount Int     @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  category Category @relation(fields: [categoryId], references: [id])
-  brand    Brand    @relation(fields: [brandId], references: [id])
-
-  images        ProductImage[]
-  variants      ProductVariant[]
-  wishlistItems WishlistItem[]
+  id              String           @id @default(cuid())
+  name            String
+  slug            String           @unique
+  description     String
+  categoryId      String
+  brandId         String
+  gender          String
+  dealerPrice     Decimal          @db.Decimal(10, 2)
+  markupPercent   Decimal          @default(100) @db.Decimal(5, 2)
+  sellingPrice    Decimal          @db.Decimal(10, 2)
+  compareAtPrice  Decimal?         @db.Decimal(10, 2)
+  discountPercent Decimal?         @db.Decimal(5, 2)
+  isPublished     Boolean          @default(false)
+  isFeatured      Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  isTrending      Boolean          @default(false)
+  rating          Decimal          @default(4.5) @db.Decimal(2, 1)
+  reviewCount     Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  brand           Brand            @relation(fields: [brandId], references: [id])
+  category        Category         @relation(fields: [categoryId], references: [id])
+  images          ProductImage[]
+  variants        ProductVariant[]
+  wishlistItems   WishlistItem[]
 }
 
 model ProductImage {
-  id String @id @default(cuid())
-
-  imageUrl String
-
-  sortOrder Int @default(0)
-
+  id        String  @id @default(cuid())
+  imageUrl  String
+  sortOrder Int     @default(0)
   productId String
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ProductVariant {
-  id String @id @default(cuid())
-
-  color String
-  size  String
-
-  price Decimal @db.Decimal(10, 2)
-
-  sku String @unique
-
-  isDefault Boolean @default(false)
-
+  id        String     @id @default(cuid())
+  color     String
+  size      String
+  price     Decimal    @db.Decimal(10, 2)
+  sku       String     @unique
+  isDefault Boolean    @default(false)
   productId String
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  inventory Inventory?
   cartItems CartItem[]
+  inventory Inventory?
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Inventory {
-  id String @id @default(cuid())
-
-  quantity Int
-
-  reserved Int @default(0)
-
-  variantId String @unique
-
-  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  id        String         @id @default(cuid())
+  quantity  Int
+  reserved  Int            @default(0)
+  variantId String         @unique
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 }
 
 model WishlistItem {
-  id String @id @default(cuid())
-
+  id        String   @id @default(cuid())
   userId    String
   productId String
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
 }
@@ -157,41 +113,109 @@ model WishlistItem {
 model Order {
   id String @id @default(cuid())
 
+  orderNumber String 
+
   userId String
 
-  totalAmount Decimal @db.Decimal(10, 2)
+  subtotal Decimal @db.Decimal(10,2)
 
-  status String
+  shipping Decimal @db.Decimal(10,2)
 
-  createdAt DateTime @default(now())
+  tax Decimal @db.Decimal(10,2)
 
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-model Cart {
-  id String @id @default(cuid())
+  totalAmount Decimal @db.Decimal(10,2)
 
-  userId String?
+  paymentMethod String
 
-  sessionId String?
+  paymentStatus String @default("PENDING")
+
+  orderStatus String @default("PLACED")
+
+  fullName String
+  phone String
+
+  addressLine1 String
+  addressLine2 String?
+
+  city String
+  state String
+  postalCode String
+  country String
 
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
 
-  items CartItem[]
+  user User @relation(fields: [userId], references: [id])
+
+  items OrderItem[]
 }
-model CartItem {
+
+model OrderItem {
   id String @id @default(cuid())
 
-  cartId String
+  orderId String
 
+  productId String?
+
+  variantId String?
+
+  productName String
+
+  color String
+
+  size String
+
+  quantity Int
+
+  price Decimal @db.Decimal(10,2)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?
+  sessionId String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String         @id @default(cuid())
+  cartId    String
   variantId String
-
-  quantity Int @default(1)
-
-  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
-
-  variant ProductVariant @relation(fields: [variantId], references: [id])
+  quantity  Int            @default(1)
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
 
   @@unique([cartId, variantId])
+}
+model Address {
+  id String @id @default(cuid())
+
+  userId String
+
+  fullName String
+  phone String
+
+  label String @default("Home")
+
+  addressLine1 String
+  addressLine2 String?
+
+  city String
+  state String
+  postalCode String
+  country String
+
+  landmark String?
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 import { verifySessionToken } from "@/lib/session";
 
@@ -12,10 +13,31 @@ const PROTECTED_ROUTES = [
   "/orders",
 ];
 
+const CART_COOKIE = "lahi_cart";
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const sessionCookie = request.cookies.get("lahi_session")?.value;
+  const response = NextResponse.next();
+
+  // --------------------------
+  // Guest Cart Cookie
+  // --------------------------
+
+  if (!request.cookies.get(CART_COOKIE)) {
+    response.cookies.set({
+      name: CART_COOKIE,
+      value: randomUUID(),
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+
+  const sessionCookie =
+    request.cookies.get("lahi_session")?.value;
 
   let isAuthenticated = false;
 
@@ -37,9 +59,10 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  const requiresAuth = PROTECTED_ROUTES.some((route) =>
-    pathname.startsWith(route)
-  );
+  const requiresAuth =
+    PROTECTED_ROUTES.some((route) =>
+      pathname.startsWith(route)
+    );
 
   if (requiresAuth && !isAuthenticated) {
     return NextResponse.redirect(
@@ -47,17 +70,11 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/login",
-    "/signup",
-    "/profile/:path*",
-    "/dashboard/:path*",
-    "/try-on/:path*",
-    "/wishlist/:path*",
-    "/orders/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

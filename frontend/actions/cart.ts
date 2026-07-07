@@ -1,53 +1,66 @@
 "use server";
+
 import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
 import { getCartSessionId } from "@/lib/cart";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function addToCart(formData: FormData) {
   const variantId = formData.get("variantId") as string;
+  const quantity = Number(formData.get("quantity"));
 
-  const quantity = Number(
-    formData.get("quantity")
-  );
+  if (!variantId || quantity <= 0) {
+    throw new Error("Invalid cart request.");
+  }
 
-  const sessionId =
-    await getCartSessionId();
+  const user = await getCurrentUser();
+  const sessionId = await getCartSessionId();
 
   let cart = await prisma.cart.findFirst({
-    where: {
-      sessionId,
-    },
+    where: user
+      ? {
+          userId: user.userId,
+        }
+      : {
+          sessionId: sessionId!,
+        },
   });
-
+  console.log("ADD TO CART - USER:", user);
+  console.log("ADD TO CART - SESSION:", sessionId);
   if (!cart) {
     cart = await prisma.cart.create({
-      data: {
-        sessionId,
-      },
+      data: user
+        ? {
+            userId: user.userId,
+          }
+        : {
+            sessionId: sessionId!,
+          },
     });
   }
 
-  const existingItem =
-  await prisma.cartItem.findFirst({
+  const existingItem = await prisma.cartItem.findFirst({
     where: {
       cartId: cart.id,
       variantId,
     },
   });
-
-if (existingItem) {
-  await prisma.cartItem.update({
-    where: {
-      id: existingItem.id,
-    },
-    data: {
-      quantity: {
-        increment: quantity,
+  console.log("ADD TO CART - CART ID:", cart.id);
+  console.log("ADD TO CART - CART SESSION:", cart.sessionId);
+  if (existingItem) {
+    await prisma.cartItem.update({
+      where: {
+        id: existingItem.id,
       },
-    },
-  });
+      data: {
+        quantity: {
+          increment: quantity,
+        },
+      },
+    });
 
-  console.log("Updated existing cart item");
+    console.log("Updated existing cart item");
   } else {
     await prisma.cartItem.create({
       data: {
@@ -59,8 +72,11 @@ if (existingItem) {
 
     console.log("Created new cart item");
   }
+
+  revalidatePath("/cart");
   revalidatePath("/", "layout");
 }
+
 export async function removeCartItem(
   cartItemId: string
 ) {

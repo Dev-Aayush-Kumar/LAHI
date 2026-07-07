@@ -1,54 +1,14 @@
-import { prisma } from "@/lib/prisma";
-import { getCartSessionId } from "@/lib/cart";
 import CartItem from "@/components/Cart/CartItem";
+import { getCart } from "@/lib/actions/cart";
 
 export default async function CartPage() {
-  const sessionId = await getCartSessionId();
-
-  const cart = await prisma.cart.findFirst({
-    where: {
-      sessionId,
-    },
-    include: {
-      items: {
-        include: {
-          variant: {
-            include: {
-              product: {
-                include: {
-                  images: {
-                    orderBy: {
-                      sortOrder: "asc",
-                    },
-                    take: 1,
-                  },
-                  wishlistItems: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-  const subtotal =
-    cart?.items.reduce(
-      (total, item) =>
-        total +
-        Number(item.variant.price) *
-          item.quantity,
-      0
-    ) ?? 0;
-
-  const shipping =
-    subtotal > 999 ? 0 : 99;
-
-  const tax = Math.round(
-    subtotal * 0.18
-  );
-
-  const total =
-    subtotal + shipping + tax;
+  const cartData = await getCart();
+  console.log("CART DATA:", cartData);
+  const cart = cartData?.cart;
+  const subtotal = cartData?.subtotal ?? 0;
+  const shipping = cartData?.shipping ?? 0;
+  const tax = cartData?.tax ?? 0;
+  const total = cartData?.total ?? 0;
   const transformedCart = cart
     ? {
         ...cart,
@@ -103,7 +63,7 @@ export default async function CartPage() {
 
           <div className="space-y-6 lg:col-span-2">
 
-            {transformedCart!.items.map((item) => (
+            {cart!.items.map((item) => (
               <CartItem
                 key={item.id}
                 item={item}
