@@ -22,8 +22,7 @@ model User {
   orders         Order[]
   wishlist       WishlistItem[]
   addresses      Address[]
-  models         UserModel[]
-  tryOnJobs      TryOnJob[]
+  avatars        UserAvatar[]
 }
 
 model Category {
@@ -114,41 +113,41 @@ model WishlistItem {
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  orderNumber   String
-  userId        String
-  subtotal      Decimal     @db.Decimal(10, 2)
-  shipping      Decimal     @db.Decimal(10, 2)
-  tax           Decimal     @db.Decimal(10, 2)
-  totalAmount   Decimal     @db.Decimal(10, 2)
+  id String @id @default(cuid())
+  orderNumber String 
+  userId String
+  subtotal Decimal @db.Decimal(10,2)
+  shipping Decimal @db.Decimal(10,2)
+  tax Decimal @db.Decimal(10,2)
+  totalAmount Decimal @db.Decimal(10,2)
   paymentMethod String
-  paymentStatus String      @default("PENDING")
-  orderStatus   String      @default("PLACED")
-  fullName      String
-  phone         String
-  addressLine1  String
-  addressLine2  String?
-  city          String
-  state         String
-  postalCode    String
-  country       String
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          User        @relation(fields: [userId], references: [id])
-  items         OrderItem[]
+  paymentStatus String @default("PENDING")
+  orderStatus String @default("PLACED")
+  fullName String
+  phone String
+  addressLine1 String
+  addressLine2 String?
+  city String
+  state String
+  postalCode String
+  country String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id])
+  items OrderItem[]
 }
 
 model OrderItem {
-  id          String  @id @default(cuid())
-  orderId     String
-  productId   String?
-  variantId   String?
+  id String @id @default(cuid())
+  orderId String
+  productId String?
+  variantId String?
   productName String
-  color       String
-  size        String
-  quantity    Int
-  price       Decimal @db.Decimal(10, 2)
-  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  color String
+  size String
+  quantity Int
+  price Decimal @db.Decimal(10,2)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model Cart {
@@ -170,94 +169,65 @@ model CartItem {
 
   @@unique([cartId, variantId])
 }
-
 model Address {
-  id           String   @id @default(cuid())
-  userId       String
-  fullName     String
-  phone        String
-  label        String   @default("Home")
+  id String @id @default(cuid())
+  userId String
+  fullName String
+  phone String
+  label String @default("Home")
   addressLine1 String
   addressLine2 String?
-  city         String
-  state        String
-  postalCode   String
-  country      String
-  landmark     String?
-  isDefault    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city String
+  state String
+  postalCode String
+  country String
+  landmark String?
+  isDefault Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum PersonStatus {
-  UPLOADING
-  PROCESSING
-  READY
-  FAILED
-}
-
-enum TryOnJobStatus {
-  QUEUED
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-model UserModel {
-  id              String       @id @default(cuid())
-  userId          String
-  /// User-visible name
-  /// Examples:
-  /// Me
-  /// Brother
-  /// Mom
-  /// Child
-  /// Friend
-  name            String
-  /// Optional relationship label
-  relation        String?
-  isDefault       Boolean      @default(false)
-  status          PersonStatus @default(UPLOADING)
-  /// Original uploaded 360° video
-  sourceVideoUrl  String?
-  /// Canonical images extracted by LAHI
-  frontImageUrl   String?
-  leftImageUrl    String?
-  rightImageUrl   String?
-  backImageUrl    String?
-  /// Future AI assets
-  segmentationUrl String?
-  bodyMeshUrl     String?
-  embeddingUrl    String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tryOnJobs       TryOnJob[]
-}
-
-model TryOnJob {
-  id          String         @id @default(cuid())
+model UserAvatar {
+  id          String   @id @default(cuid())
   userId      String
-  modelId     String
-  productId   String?
-  status      TryOnJobStatus @default(QUEUED)
-  progress    Int            @default(0)
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime       @default(now())
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  model       UserModel      @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  product     Product?       @relation(fields: [productId], references: [id])
-  result      TryOnResult?
+  name        String
+  isDefault   Boolean  @default(false)
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images       AvatarImage[]
+  tryOnJobs    TryOnJob[]
 }
-
+model AvatarImage {
+  id String @id @default(cuid())
+  avatarId String
+  imageUrl String
+  angle String
+  isPrimary Boolean @default(false)
+  createdAt DateTime @default(now())
+  avatar UserAvatar @relation(fields:[avatarId], references:[id], onDelete: Cascade)
+}
+model TryOnJob {
+  id String @id @default(cuid())
+  avatarId String
+  productId String
+  status String @default("QUEUED")
+  progress Int @default(0)
+  startedAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  avatar UserAvatar @relation(fields:[avatarId], references:[id], onDelete: Cascade)
+  product Product @relation(fields:[productId], references:[id])
+  result TryOnResult?
+}
 model TryOnResult {
-  id                String   @id @default(cuid())
-  jobId             String   @unique
-  generatedImageUrl String
-  modelName         String?
-  generationTimeMs  Int?
-  createdAt         DateTime @default(now())
-  job               TryOnJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+  jobId String @unique
+  imageUrl String
+  modelName String?
+  generationTime Int?
+  createdAt DateTime @default(now())
+  job TryOnJob @relation(fields:[jobId], references:[id], onDelete: Cascade)
 }
