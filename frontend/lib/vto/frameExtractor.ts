@@ -25,12 +25,22 @@ export async function generateFrames(
     recursive: true,
   });
 
+  // Clean previous extracted frames
+  const existingFiles = await fs.readdir(frameFolder);
+
+  await Promise.all(
+    existingFiles.map((file) =>
+      fs.unlink(path.join(frameFolder, file))
+    )
+  );
+
   const outputPattern = path.join(
     frameFolder,
     "frame-%03d.jpg"
   );
 
   await runFFmpeg([
+    "-y", // overwrite if anything exists
     "-i",
     videoPath,
     "-vf",

@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+**/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -14,7 +14,7 @@
 /coverage
 
 # next.js
-/.next/
+**/.next/
 /out/
 
 # production
@@ -31,7 +31,10 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.production
+.env.development
 
 # vercel
 .vercel
@@ -41,3 +44,43 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+
+frontend/.turbo
+
+
+ai/.env
+
+# ==========================
+# Python
+# ==========================
+**/__pycache__/
+ai/.venv/
+*.pyc
+*.pyo
+
+# ==========================
+# Uploads (generated at runtime)
+# ==========================
+frontend/public/uploads/videos/*
+frontend/public/uploads/frames/*
+frontend/public/uploads/generated/*
+frontend/public/uploads/canonical/*
+
+# Keep folder structure
+!frontend/public/uploads/videos/.gitkeep
+!frontend/public/uploads/frames/.gitkeep
+!frontend/public/uploads/generated/.gitkeep
+!frontend/public/uploads/canonical/.gitkeep
+
+# ==========================
+# OS
+# ==========================
+
+Thumbs.db
+
+# ==========================
+# IDE
+# ==========================
+.vscode/
+.idea/

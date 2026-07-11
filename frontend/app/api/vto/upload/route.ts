@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-
+import { checkAIHealth } from "@/lib/vto/health";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-
+import { createJob, updateJob } from "@/lib/vto/jobManager";
+import { AIJobStatus } from "@/lib/vto/jobStatus";
 import { saveVideo } from "@/lib/vto/storage";
 import { preprocessVideo } from "@/lib/vto/orchestrator";
 
@@ -12,7 +13,19 @@ export async function POST(
 ) {
   try {
     const user = await getCurrentUser();
+    const aiOnline = await checkAIHealth();
 
+    if (!aiOnline) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "AI Server is offline."
+        },
+        {
+          status: 503
+        }
+      );
+    }
     if (!user) {
       return NextResponse.json(
         {
@@ -58,11 +71,24 @@ export async function POST(
 
     const savedVideo =
       await saveVideo(video, fileName);
+    const jobId = createJob();
 
+    updateJob(
+      jobId,
+      AIJobStatus.PREPROCESSING,
+      10,
+      "Extracting video frames..."
+    );
     const preprocessing =
       await preprocessVideo(
         savedVideo.absolutePath
       );
+    updateJob(
+      jobId,
+      AIJobStatus.DETECTING_POSE,
+      30,
+      "Preparing AI analysis..."
+    );
 
     const model =
       await prisma.userModel.create({
@@ -91,9 +117,15 @@ export async function POST(
           status: "READY",
         },
       });
-
+    updateJob(
+      jobId,
+      AIJobStatus.FINISHED,
+      100,
+      "Completed"
+    );
     return NextResponse.json({
       success: true,
+      jobId,
       modelId: model.id,
       status: model.status,
     });

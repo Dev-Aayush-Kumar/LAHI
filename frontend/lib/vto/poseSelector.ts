@@ -1,5 +1,9 @@
 import type { ExtractedFrame } from "./frameExtractor";
 
+import { rankFrames } from "./frameRanker";
+
+export type { ExtractedFrame };
+
 export type SelectedPose = {
   front?: ExtractedFrame;
   left?: ExtractedFrame;
@@ -11,14 +15,17 @@ export async function selectCanonicalFrames(
   frames: ExtractedFrame[]
 ): Promise<SelectedPose> {
   /**
-   * Sprint 4 Placeholder
+   * Sprint 4
    *
-   * Later this module will:
-   * • detect body orientation
-   * • score image quality
-   * • remove blurry frames
-   * • detect occlusions
-   * • choose best front / left / right / back
+   * Current:
+   * ✓ ranks frames using brightness + sharpness
+   * ✓ chooses temporary canonical frames
+   *
+   * Sprint 5:
+   * • MediaPipe orientation
+   * • Face confidence
+   * • Body confidence
+   * • Occlusion score
    */
 
   console.log(
@@ -29,12 +36,18 @@ export async function selectCanonicalFrames(
     return {};
   }
 
-  // Temporary placeholder.
-  // Sprint 5 will replace this with AI-based orientation detection.
+  const rankedFrames =
+    await rankFrames(frames);
+
+  console.log(
+    "Highest quality score:",
+    rankedFrames[0]?.qualityScore
+  );
+
   return {
-    front: frames[0],
-    left: frames[1],
-    right: frames[2],
-    back: frames[3],
+    front: rankedFrames[0],
+    left: rankedFrames[1],
+    right: rankedFrames[2],
+    back: rankedFrames[3],
   };
 }

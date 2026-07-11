@@ -1,6 +1,6 @@
 import { generateFrames } from "./frameExtractor";
 import { selectCanonicalFrames } from "./poseSelector";
-
+import { aiLog } from "./logger";
 export type PreprocessingResult = {
   frontImageUrl?: string;
   leftImageUrl?: string;
@@ -11,21 +11,29 @@ export type PreprocessingResult = {
 export async function preprocessVideo(
   videoUrl: string
 ): Promise<PreprocessingResult> {
-  console.log("=================================");
-  console.log("LAHI PREPROCESSING STARTED");
-  console.log("=================================");
+  aiLog(
+    "PREPROCESSING",
+    "Pipeline Started"
+  );
 
   const frames = await generateFrames(videoUrl);
 
-  console.log(`Frames Generated: ${frames.length}`);
+  aiLog(
+    "FRAME EXTRACTION",
+    `${frames.length} frames extracted`
+  );
 
   const poses = await selectCanonicalFrames(frames);
 
-  console.log("Pose Selection Complete");
+  aiLog(
+    "POSE",
+    "Canonical frame selection completed"
+  );
 
-  console.log("=================================");
-  console.log("LAHI PREPROCESSING FINISHED");
-  console.log("=================================");
+  aiLog(
+    "PREPROCESSING",
+    "Pipeline Finished"
+  );
 
   return {
     frontImageUrl: poses.front?.imageUrl,
