@@ -3,7 +3,9 @@ import { randomUUID } from "crypto";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+
 import { saveVideo } from "@/lib/vto/storage";
+import { preprocessVideo } from "@/lib/vto/orchestrator";
 
 export async function POST(
   request: NextRequest
@@ -25,11 +27,12 @@ export async function POST(
 
     const formData = await request.formData();
 
-    const video = formData.get("video") as File | null;
+    const video =
+      formData.get("video") as File | null;
 
     const modelName =
       (formData.get("modelName") as string) ??
-      "My Model";
+      "Me";
 
     const relation =
       (formData.get("relation") as string) ??
@@ -39,7 +42,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message: "Video not received.",
+          message: "Video missing.",
         },
         {
           status: 400,
@@ -47,26 +50,45 @@ export async function POST(
       );
     }
 
-    // Generate unique filename
     const extension =
       video.name.split(".").pop() ?? "mp4";
 
-    const fileName = `${randomUUID()}.${extension}`;
+    const fileName =
+      `${randomUUID()}.${extension}`;
 
-    // Save video locally
-    const videoUrl = await saveVideo(
-      video,
-      fileName
-    );
+    const savedVideo =
+      await saveVideo(video, fileName);
 
-    // Create UserModel
+    const preprocessing =
+      await preprocessVideo(
+        savedVideo.absolutePath
+      );
+
     const model =
       await prisma.userModel.create({
         data: {
           userId: user.userId,
+
           name: modelName,
+
           relation,
-          sourceVideoUrl: videoUrl,
+
+          sourceVideoUrl:
+            savedVideo.publicUrl,
+
+          frontImageUrl:
+            preprocessing.frontImageUrl,
+
+          leftImageUrl:
+            preprocessing.leftImageUrl,
+
+          rightImageUrl:
+            preprocessing.rightImageUrl,
+
+          backImageUrl:
+            preprocessing.backImageUrl,
+
+          status: "READY",
         },
       });
 
@@ -74,9 +96,6 @@ export async function POST(
       success: true,
       modelId: model.id,
       status: model.status,
-      relation,
-      modelName,
-      videoUrl,
     });
   } catch (error) {
     console.error(error);

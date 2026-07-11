@@ -8,15 +8,25 @@ export const UPLOAD_ROOT = path.join(
 );
 
 export async function ensureUploadFolders() {
-  await fs.mkdir(
-    path.join(UPLOAD_ROOT, "videos"),
-    { recursive: true }
-  );
+  await fs.mkdir(path.join(UPLOAD_ROOT, "videos"), {
+    recursive: true,
+  });
 
-  await fs.mkdir(
-    path.join(UPLOAD_ROOT, "generated"),
-    { recursive: true }
-  );
+  await fs.mkdir(path.join(UPLOAD_ROOT, "models"), {
+    recursive: true,
+  });
+
+  await fs.mkdir(path.join(UPLOAD_ROOT, "frames"), {
+    recursive: true,
+  });
+
+  await fs.mkdir(path.join(UPLOAD_ROOT, "canonical"), {
+    recursive: true,
+  });
+
+  await fs.mkdir(path.join(UPLOAD_ROOT, "generated"), {
+    recursive: true,
+  });
 }
 
 export async function saveVideo(
@@ -29,13 +39,20 @@ export async function saveVideo(
 
   const buffer = Buffer.from(bytes);
 
-  const destination = path.join(
+  const absolutePath = path.join(
     UPLOAD_ROOT,
     "videos",
     fileName
   );
 
-  await fs.writeFile(destination, buffer);
+  await fs.writeFile(
+    absolutePath,
+    buffer
+  );
 
-  return `/uploads/videos/${fileName}`;
+  return {
+    absolutePath,
+
+    publicUrl: `/uploads/videos/${fileName}`,
+  };
 }
