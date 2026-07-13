@@ -1,29 +1,75 @@
-# Dependencies
-node_modules/
-
-# Next.js
-.next/
-out/
-
-# Production
-build/
+# ======================================
+# Repository-wide Git Ignore
+# ======================================
 
 # Logs
 *.log
 
-# Environment Variables
+# ==========================
+# Dependencies
+# ==========================
+**/node_modules
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ==========================
+# Environment
+# ==========================
 .env
 .env.local
-.env.development.local
-.env.production.local
+.env.production
+.env.development
 
-# OS Files
+# ==========================
+# OS
+# ==========================
 .DS_Store
 Thumbs.db
 
+# ==========================
 # IDE
+# ==========================
 .vscode/
 .idea/
 
+# ==========================
 # TypeScript
+# ==========================
 *.tsbuildinfo
+
+# ==========================
+# Python
+# ==========================
+**/__pycache__/
+*.pyc
+*.pyo
+ai/.venv/
+ai/.env
+
+# ==========================
+# AI Models
+# ==========================
+ai/weights/
+
+# ==========================
+# Runtime Uploads
+# ==========================
+frontend/public/uploads/videos/*
+frontend/public/uploads/frames/*
+frontend/public/uploads/generated/*
+frontend/public/uploads/canonical/*
+
+!frontend/public/uploads/videos/.gitkeep
+!frontend/public/uploads/frames/.gitkeep
+!frontend/public/uploads/generated/.gitkeep
+!frontend/public/uploads/canonical/.gitkeep
+
+# ==========================
+# Generated Code
+# ==========================
+frontend/lib/generated/
