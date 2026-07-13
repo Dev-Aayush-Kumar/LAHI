@@ -1,40 +1,47 @@
+from pathlib import Path
+
 import mediapipe as mp
-import cv2
+from mediapipe.tasks.python import BaseOptions
+from mediapipe.tasks.python import vision
 
-mp_pose = mp.solutions.pose
+MODEL_PATH = (
+    Path(__file__)
+    .resolve()
+    .parent.parent
+    / "weights"
+    / "pose_landmarker_lite.task"
+)
 
-_pose = mp_pose.Pose(
-    static_image_mode=True,
-    model_complexity=1,
-    enable_segmentation=False,
-    min_detection_confidence=0.5
+_options = vision.PoseLandmarkerOptions(
+    base_options=BaseOptions(
+        model_asset_path=str(MODEL_PATH)
+    ),
+    running_mode=vision.RunningMode.IMAGE,
+)
+
+_pose = vision.PoseLandmarker.create_from_options(
+    _options
 )
 
 
 def detect_pose(image_path: str):
-    image = cv2.imread(image_path)
+    image = mp.Image.create_from_file(image_path)
 
-    if image is None:
-        return None
+    result = _pose.detect(image)
 
-    rgb = cv2.cvtColor(
-        image,
-        cv2.COLOR_BGR2RGB
-    )
-
-    result = _pose.process(rgb)
-
-    if result.pose_landmarks is None:
+    if len(result.pose_landmarks) == 0:
         return None
 
     landmarks = []
 
-    for landmark in result.pose_landmarks.landmark:
-        landmarks.append({
-            "x": landmark.x,
-            "y": landmark.y,
-            "z": landmark.z,
-            "visibility": landmark.visibility
-        })
+    for landmark in result.pose_landmarks[0]:
+        landmarks.append(
+            {
+                "x": landmark.x,
+                "y": landmark.y,
+                "z": landmark.z,
+                "visibility": landmark.visibility,
+            }
+        )
 
     return landmarks
