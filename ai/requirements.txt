@@ -5,3 +5,7 @@ mediapipe
 numpy
 pillow
 python-multipart
+transformers
+torch
+accelerate
+sentencepiece
