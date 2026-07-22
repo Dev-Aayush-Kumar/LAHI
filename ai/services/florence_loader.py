@@ -1,3 +1,5 @@
+import os
+os.environ["FLASH_ATTENTION_SKIP_IMPORT_CHECK"] = "1"
 from pathlib import Path
 
 from transformers import AutoProcessor
@@ -31,7 +33,8 @@ class FlorenceLoader:
 
         self.model = AutoModelForCausalLM.from_pretrained(
             FLORENCE_MODEL,
-            trust_remote_code=True
+            trust_remote_code=True,
+            attn_implementation="eager"
         )
 
         models.register_florence(self)

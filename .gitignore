@@ -79,5 +79,11 @@ frontend/lib/generated/
 ai/external/IDM-VTON/ckpt/
 ai/external/IDM-VTON/temp_hf_check/
 
-# Python cache
-*.py[cod]
+# AI external repositories
+external/
+flash_attn/
+
+# Local documentation
+lahi_structure.txt
+lahi_current_structure.txt
+npm_packages.txt

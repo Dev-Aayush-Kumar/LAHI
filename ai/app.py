@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from services.sam2.sam2_loader import load_sam2
 from services.florence_loader import florence
+from models.idm_loader import idm
 
 from api.pose import router as pose_router
 from api.system import router as system_router
@@ -24,6 +25,7 @@ def startup():
 
     florence.load()
     load_sam2()
+    idm.load()
 
 
 app.mount(
