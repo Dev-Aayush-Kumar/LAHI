@@ -1,5 +1,5 @@
 from pathlib import Path
-
+from PIL import Image
 import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision
@@ -25,6 +25,18 @@ _pose = vision.PoseLandmarker.create_from_options(
 
 
 def detect_pose(image_path: str):
+
+    from PIL import Image
+
+    print("Image path:", image_path)
+
+    img = Image.open(image_path)
+
+    print("PIL opened successfully")
+    print("Format:", img.format)
+    print("Mode:", img.mode)
+    print("Size:", img.size)
+
     image = mp.Image.create_from_file(image_path)
 
     result = _pose.detect(image)

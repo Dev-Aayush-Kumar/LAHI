@@ -1,9 +1,17 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+
 from services.sam2.sam2_loader import load_sam2
+from services.florence_loader import florence
+
 from api.pose import router as pose_router
 from api.system import router as system_router
 
-from services.florence_loader import florence
+
+BASE_DIR = Path(__file__).resolve().parent
+
 
 app = FastAPI(
     title="LAHI AI Backend",
@@ -16,6 +24,13 @@ def startup():
 
     florence.load()
     load_sam2()
+
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=BASE_DIR / "public" / "uploads"),
+    name="uploads"
+)
 
 
 app.include_router(system_router)

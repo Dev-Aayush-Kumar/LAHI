@@ -50,6 +50,7 @@ Thumbs.db
 *.pyo
 ai/.venv/
 ai/.env
+.pytest_cache/
 
 # ==========================
 # AI Models
@@ -73,3 +74,10 @@ frontend/public/uploads/canonical/*
 # Generated Code
 # ==========================
 frontend/lib/generated/
+
+# IDM-VTON
+ai/external/IDM-VTON/ckpt/
+ai/external/IDM-VTON/temp_hf_check/
+
+# Python cache
+*.py[cod]

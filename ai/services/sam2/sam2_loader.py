@@ -33,7 +33,7 @@ def load_sam2():
         return SAM2_PREDICTOR
 
     device = torch.device(
-        "cuda" if torch.cuda.ia_available() else "cpu"
+        "cuda" if torch.cuda.is_available() else "cpu"
     )
 
     print(f"Loading SAM2 on {device}")
