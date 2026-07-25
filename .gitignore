@@ -45,7 +45,7 @@ Thumbs.db
 # ==========================
 # Python
 # ==========================
-**/__pycache__/
+__pycache__/
 *.pyc
 *.pyo
 ai/.venv/

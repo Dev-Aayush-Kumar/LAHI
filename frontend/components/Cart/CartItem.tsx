@@ -76,23 +76,24 @@ export default function CartItem({ item }: Props) {
               }
               variant="inline"
             />
-
-            <button
-              type="button"
-              className="
-                rounded-xl
-                border
-                border-black
-                px-5
-                py-2
-                font-medium
-                transition
-                hover:bg-black
-                hover:text-white
-              "
-            >
-              Try It On
-            </button>
+            <Link href={`/try-on/${item.variant.product.id}`}>
+              <button
+                type="button"
+                className="
+                  rounded-xl
+                  border
+                  border-black
+                  px-5
+                  py-2
+                  font-medium
+                  transition
+                  hover:bg-black
+                  hover:text-white
+                "
+              >
+                Try It On
+              </button>
+            </Link>
 
             <MoveToWishlistButton
               cartItemId={item.id}

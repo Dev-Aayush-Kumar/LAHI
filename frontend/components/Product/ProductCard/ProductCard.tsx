@@ -4,6 +4,7 @@ import Card from "@/components/Shared/Card";
 import { addToCart } from "@/actions/cart";
 import AddToCartButton from "../AddToCartButton";
 import WishlistButton from "./WishlistButton";
+import Link from "next/link";
 
 type ProductCardProps = {
   product: {
@@ -99,9 +100,11 @@ export default function ProductCard({
         </div>
 
         <div className="mt-6">
-          <Button>
-            Try It On
-          </Button>
+          <Link href={`/try-on/${product.id}`}>
+            <span className="inline-block rounded bg-black px-6 py-3 text-white cursor-pointer">
+              Try It On
+            </span>
+          </Link>
         </div>
 
         <div className="mt-3">

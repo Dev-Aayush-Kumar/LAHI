@@ -2,7 +2,9 @@ import sys
 import time
 import importlib.util
 import torch
-
+from pathlib import Path
+from PIL import Image
+import uuid
 from diffusers import AutoencoderKL
 from diffusers import DDPMScheduler
 from transformers import AutoTokenizer
@@ -150,6 +152,53 @@ class IDMLoader:
         )
 
         return self.pipe
+    def run(
+        self,
+        person_image: str,
+        garment_image: str,
+        mask_path: str,
+    ):
 
+        if self.pipe is None:
+            raise RuntimeError(
+                "IDM-VTON model not loaded."
+            )
+
+        person = Image.open(person_image).convert("RGB")
+        garment = Image.open(garment_image).convert("RGB")
+        mask = Image.open(mask_path).convert("L")
+
+        output = self.pipe(
+            image=person,
+            cloth=garment,
+            mask_image=mask,
+            num_inference_steps=30,
+            guidance_scale=2.0,
+        )
+
+        result = output.images[0]
+
+        output_dir = (
+            IDM_ROOT_DIR.parent /
+            "public" /
+            "uploads" /
+            "generated"
+        )
+
+        output_dir.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        filename = f"{uuid.uuid4()}.png"
+
+        path = output_dir / filename
+
+        result.save(path)
+
+        return {
+            "image_path": str(path),
+            "image_url": f"/uploads/generated/{filename}"
+        }
 
 idm = IDMLoader()

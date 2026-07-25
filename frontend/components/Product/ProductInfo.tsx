@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { addToCart } from "@/actions/cart";
 import WishlistButton from "@/components/Product/ProductCard/WishlistButton";
+import Link from "next/link";
 
 type Variant = {
   id: string;
@@ -225,23 +226,25 @@ export default function ProductInfo({
 
       <div className="mt-10 flex flex-col gap-4 sm:flex-row">
 
-        <button
-          type="button"
-          className="
-            rounded-xl
-            border
-            border-black
-            px-8
-            py-4
-            font-semibold
-            transition
-            hover:bg-black
-            hover:text-white
-            active:scale-95
-          "
-        >
-          Try It On
-        </button>
+        <Link href={`/try-on/${product.id}`}>
+          <button
+            type="button"
+            className="
+              rounded-xl
+              border
+              border-black
+              px-8
+              py-4
+              font-semibold
+              transition
+              hover:bg-black
+              hover:text-white
+              active:scale-95
+            "
+          >
+            Try It On
+          </button>
+        </Link>
 
         <form action={addToCart}>
 

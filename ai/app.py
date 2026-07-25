@@ -1,8 +1,8 @@
 from pathlib import Path
-
+from api.inference import router as inference_router
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-
+from api.pipeline import router as pipeline_router
 from services.sam2.sam2_loader import load_sam2
 from services.florence_loader import florence
 from models.idm_loader import idm
@@ -37,7 +37,8 @@ app.mount(
 
 app.include_router(system_router)
 app.include_router(pose_router)
-
+app.include_router(inference_router)
+app.include_router(pipeline_router)
 
 @app.get("/")
 def root():

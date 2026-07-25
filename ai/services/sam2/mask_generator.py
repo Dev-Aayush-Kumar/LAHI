@@ -77,6 +77,10 @@ def generate_mask(image_path: str):
 
         "mask_url": f"/uploads/generated/{binary_filename}",
 
-        "garment_url": f"/uploads/generated/{garment_filename}"
+        "garment_url": f"/uploads/generated/{garment_filename}",
+
+        "mask_path": str(binary_path),
+
+        "garment_path": str(garment_path)
 
     }

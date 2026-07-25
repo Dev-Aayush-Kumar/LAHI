@@ -56,3 +56,26 @@ export async function saveVideo(
     publicUrl: `/uploads/videos/${fileName}`,
   };
 }
+
+export async function saveCanonicalImage(
+  sourceImagePath: string,
+  fileName: string
+) {
+  await ensureUploadFolders();
+
+  const destination = path.join(
+    UPLOAD_ROOT,
+    "canonical",
+    fileName
+  );
+
+  await fs.copyFile(
+    sourceImagePath,
+    destination
+  );
+
+  return {
+    absolutePath: destination,
+    publicUrl: `/uploads/canonical/${fileName}`,
+  };
+}

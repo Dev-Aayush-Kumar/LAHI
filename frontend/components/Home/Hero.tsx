@@ -1,4 +1,5 @@
 import Button from "@/components/Shared/Button";
+import Link from "next/link";
 
 export default function Hero() {
   return (
@@ -26,11 +27,9 @@ export default function Hero() {
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-
             <Button variant="primary">
               Try It On
             </Button>
-
             <Button variant="secondary">
               Browse Collection
             </Button>

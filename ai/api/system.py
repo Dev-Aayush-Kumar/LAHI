@@ -6,7 +6,7 @@ import os
 from services.sam2.mask_generator import generate_mask
 from services.florence_caption import generate_caption
 from models.model_manager import models
-
+from services.pipeline import process_pipeline
 router = APIRouter(
     prefix="/system",
     tags=["System"]
@@ -73,3 +73,28 @@ async def mask(
 def model_status():
 
     return models.info()
+
+@router.post("/pipeline")
+async def pipeline(
+    image: UploadFile = File(...)
+):
+    suffix = os.path.splitext(image.filename)[1]
+
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=suffix
+    ) as temp:
+
+        temp.write(await image.read())
+        path = temp.name
+
+    try:
+
+        result = process_pipeline(path)
+
+        return result
+
+    finally:
+
+        if os.path.exists(path):
+            os.remove(path)

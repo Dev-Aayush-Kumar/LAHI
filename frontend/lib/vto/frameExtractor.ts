@@ -5,6 +5,7 @@ import { runFFmpeg } from "./ffmpegRunner";
 
 export type ExtractedFrame = {
   fileName: string;
+  absolutePath: string;
   imageUrl: string;
   timestampMs: number;
   angle?: string;
@@ -52,14 +53,27 @@ export async function generateFrames(
     .filter((file) => file.endsWith(".jpg"))
     .sort();
 
-  const frames: ExtractedFrame[] = files.map(
-    (file, index) => ({
-      fileName: file,
-      imageUrl: `/uploads/frames/${file}`,
-      timestampMs: index * 500,
-    })
-  );
+  const frames: ExtractedFrame[] =
+    files.map((file, index) => {
 
+      const absolutePath = path.join(
+        frameFolder,
+        file
+      );
+
+      return {
+
+        fileName: file,
+
+        absolutePath,
+
+        imageUrl: `/uploads/frames/${file}`,
+
+        timestampMs: index * 500,
+
+      };
+
+    });
   console.log(
     `Extracted ${frames.length} frame(s)`
   );

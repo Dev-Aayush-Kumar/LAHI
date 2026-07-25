@@ -126,16 +126,12 @@ export default async function ProductPage({
     <main className="mx-auto max-w-7xl px-6 py-12">
       <div className="grid gap-12 lg:grid-cols-2">
 
-        {/* LEFT : Images */}
-
         <section>
           <ProductImageGallery
             images={product.images}
             productName={product.name}
           />
         </section>
-
-        {/* RIGHT : Product Details */}
 
         <ProductInfo product={clientProduct} />
 
