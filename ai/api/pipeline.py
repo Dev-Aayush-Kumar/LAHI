@@ -3,44 +3,62 @@ from fastapi import UploadFile
 from fastapi import File
 
 import os
+import shutil
 import tempfile
 
-from services.pipeline import process_pipeline
-
+from services.tryon_pipeline import process_tryon
 
 router = APIRouter(
     prefix="/pipeline",
-    tags=["Pipeline"]
+    tags=["Pipeline"],
 )
 
 
 @router.post("/process")
 async def process(
-    video: UploadFile = File(...)
+    person: UploadFile = File(...),
+    garment: UploadFile = File(...),
 ):
 
-    suffix = os.path.splitext(
-        video.filename
-    )[1]
+    temp_dir = tempfile.mkdtemp()
 
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    ) as temp:
+    person_path = os.path.join(
+        temp_dir,
+        person.filename,
+    )
 
-        temp.write(
-            await video.read()
+    garment_path = os.path.join(
+        temp_dir,
+        garment.filename,
+    )
+
+    with open(person_path, "wb") as f:
+        shutil.copyfileobj(
+            person.file,
+            f,
         )
 
-        video_path = temp.name
+    with open(garment_path, "wb") as f:
+        shutil.copyfileobj(
+            garment.file,
+            f,
+        )
 
     try:
 
-        return process_pipeline(
-            video_path
+        result = process_tryon(
+            person_path,
+            garment_path,
         )
+
+        return {
+            "success": True,
+            **result,
+        }
 
     finally:
 
-        if os.path.exists(video_path):
-            os.remove(video_path)
+        shutil.rmtree(
+            temp_dir,
+            ignore_errors=True,
+        )

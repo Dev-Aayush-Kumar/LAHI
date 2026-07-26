@@ -31,12 +31,12 @@ class ModelManager:
 
 
     def register_florence(self, loader):
-
         self.florence = loader
 
+    def register_sam(self, loader):
+        self.sam2 = loader
 
     def register_idm(self, pipe):
-
         self.idm = pipe
 
 
