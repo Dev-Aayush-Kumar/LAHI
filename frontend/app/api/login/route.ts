@@ -31,14 +31,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!user) {
+    if (!user || user.accountStatus !== "ACTIVE") {
       return NextResponse.json(
         {
           success: false,
+          code: "UNAUTHORIZED",
           message: "No account found with this email.",
         },
         {
-          status: 404,
+          status: 401,
         }
       );
     }
@@ -149,6 +150,8 @@ export async function POST(request: NextRequest) {
     const token = await createSessionToken({
       userId: user.id,
       email: user.email,
+      role: user.role,
+      sv: user.sessionVersion,
     });
 
     const response = NextResponse.json({
@@ -159,6 +162,7 @@ export async function POST(request: NextRequest) {
         fullName: user.fullName,
         email: user.email,
         profileImage: user.profileImage,
+        role: user.role,
       },
     });
 

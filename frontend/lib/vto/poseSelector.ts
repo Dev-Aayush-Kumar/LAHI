@@ -1,4 +1,5 @@
 import type { ExtractedFrame } from "./frameExtractor";
+import fs from "fs/promises";
 
 export type { ExtractedFrame };
 
@@ -9,16 +10,13 @@ export type SelectedPose = {
   back?: ExtractedFrame;
 };
 
-const AI_BASE =
-  process.env.NEXT_PUBLIC_AI_SERVER_URL ??
-  "http://127.0.0.1:8000";
-
 async function detectPose(
   frame: ExtractedFrame
 ) {
-  const imageResponse = await fetch(frame.imageUrl);
-
-  const blob = await imageResponse.blob();
+  const bytes = await fs.readFile(frame.absolutePath);
+  const blob = new Blob([bytes], {
+    type: "image/jpeg",
+  });
 
   const form = new FormData();
 
@@ -28,11 +26,16 @@ async function detectPose(
     frame.fileName
   );
 
+  const baseUrl = process.env.AI_SERVER_URL?.replace(/\/$/, "");
+  if (!baseUrl) return null;
   const response = await fetch(
-    `${AI_BASE}/pose/detect`,
+    `${baseUrl}/pose/detect`,
     {
       method: "POST",
       body: form,
+      headers: process.env.AI_SERVER_TOKEN
+        ? { Authorization: `Bearer ${process.env.AI_SERVER_TOKEN}` }
+        : undefined,
     }
   );
 

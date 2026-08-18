@@ -1,5 +1,4 @@
 import ProductCardImage from "@/components/Product/ProductCardImage";
-import Button from "@/components/Shared/Button";
 import Card from "@/components/Shared/Card";
 import { addToCart } from "@/actions/cart";
 import AddToCartButton from "../AddToCartButton";
@@ -11,8 +10,12 @@ type ProductCardProps = {
     id: string;
     slug: string;
     name: string;
-    sellingPrice: any;
-    compareAtPrice: any | null;
+    sellingPrice: number | string | { toString(): string };
+    compareAtPrice:
+      | number
+      | string
+      | { toString(): string }
+      | null;
 
     brand: {
       name: string;
@@ -65,7 +68,7 @@ export default function ProductCard({
 
         <WishlistButton
           productId={product.id}
-          isWishlisted={product.isWishlisted}
+          initialWishlisted={product.isWishlisted}
         />
 
       </div>

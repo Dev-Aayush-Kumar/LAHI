@@ -1,119 +1,100 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
 import { getCartSessionId } from "@/lib/cart";
 import { getCurrentUser } from "@/lib/auth";
+import {
+  addCartItem,
+  getCartRecord,
+  removeCartItem as removeOwnedCartItem,
+  updateCartItemQuantity,
+} from "@/lib/commerce/cart";
+import { calculateOrderTotals } from "@/lib/commerce/money";
+
+function identityFrom(
+  user: { userId: string } | null,
+  sessionId: string | null
+) {
+  return {
+    userId: user?.userId,
+    sessionId,
+  };
+}
+
+function serializeCart(cart: NonNullable<Awaited<ReturnType<typeof getCartRecord>>>) {
+  const subtotal = cart.items.reduce(
+    (total, item) => total + Number(item.variant.price) * item.quantity,
+    0
+  );
+  const totals = calculateOrderTotals({ subtotal });
+
+  return {
+    cart: {
+      ...cart,
+      items: cart.items.map((item) => ({
+        ...item,
+        variant: {
+          ...item.variant,
+          price: Number(item.variant.price),
+          product: {
+            ...item.variant.product,
+            dealerPrice: Number(item.variant.product.dealerPrice),
+            markupPercent: Number(item.variant.product.markupPercent),
+            sellingPrice: Number(item.variant.product.sellingPrice),
+            compareAtPrice: item.variant.product.compareAtPrice
+              ? Number(item.variant.product.compareAtPrice)
+              : null,
+            discountPercent: item.variant.product.discountPercent
+              ? Number(item.variant.product.discountPercent)
+              : null,
+            rating: Number(item.variant.product.rating),
+            isWishlisted:
+              (item.variant.product.wishlistItems?.length ?? 0) > 0,
+          },
+        },
+      })),
+    },
+    ...totals,
+  };
+}
 
 export async function getCart() {
   const sessionId = await getCartSessionId();
-  console.log("Guest Session ID:", sessionId);
   const user = await getCurrentUser();
-  const cart = await prisma.cart.findFirst({
-    where: {
-      OR: [
-        ...(user
-          ? [
-              {
-                userId: user.userId,
-              },
-            ]
-          : []),
-        ...(sessionId
-          ? [
-              {
-                sessionId,
-              },
-            ]
-          : []),
-      ],
-    },
+  const cart = await getCartRecord(prisma, identityFrom(user, sessionId));
+  if (!cart) return null;
+  return serializeCart(cart);
+}
 
-    include: {
-      items: {
-        include: {
-          variant: {
-            include: {
-              product: {
-                include: {
-                  images: {
-                    orderBy: {
-                      sortOrder: "asc",
-                    },
-                    take: 1,
-                  },
-                  wishlistItems: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
+export async function addToCart(formData: FormData) {
+  const variantId = formData.get("variantId") as string;
+  const quantity = Number(formData.get("quantity"));
+  const user = await getCurrentUser();
+  const sessionId = await getCartSessionId();
+  await addCartItem(prisma, identityFrom(user, sessionId), variantId, quantity);
+  revalidatePath("/cart");
+  revalidatePath("/", "layout");
+}
 
-console.log("SESSION ID:", sessionId);
-console.log("USER:", user);
-console.log("FOUND CART:", cart?.id);
-console.log("ITEM COUNT:", cart?.items.length);
+export async function removeCartItem(cartItemId: string) {
+  const user = await getCurrentUser();
+  const sessionId = await getCartSessionId();
+  await removeOwnedCartItem(prisma, identityFrom(user, sessionId), cartItemId);
+  revalidatePath("/cart");
+  revalidatePath("/", "layout");
+}
 
-  if (!cart) {
-    return null;
-  }
-
-  const subtotal = cart.items.reduce(
-    (total, item) =>
-      total +
-      Number(item.variant.price) * item.quantity,
-    0
+export async function setCartItemQuantity(cartItemId: string, quantity: number) {
+  const user = await getCurrentUser();
+  const sessionId = await getCartSessionId();
+  await updateCartItemQuantity(
+    prisma,
+    identityFrom(user, sessionId),
+    cartItemId,
+    quantity
   );
-
-  const shipping = subtotal > 999 ? 0 : 99;
-
-  const tax = Math.round(subtotal * 0.18);
-
-  const total = subtotal + shipping + tax;
-
-  const transformedCart = {
-    ...cart,
-    items: cart.items.map((item) => ({
-      ...item,
-      variant: {
-        ...item.variant,
-        price: Number(item.variant.price),
-        product: {
-          ...item.variant.product,
-          dealerPrice: Number(
-            item.variant.product.dealerPrice
-          ),
-          markupPercent: Number(
-            item.variant.product.markupPercent
-          ),
-          sellingPrice: Number(
-            item.variant.product.sellingPrice
-          ),
-          compareAtPrice:
-            item.variant.product.compareAtPrice
-              ? Number(
-                  item.variant.product.compareAtPrice
-                )
-              : null,
-          discountPercent:
-            item.variant.product.discountPercent
-              ? Number(
-                  item.variant.product.discountPercent
-                )
-              : null,
-          rating: Number(item.variant.product.rating),
-          isWishlisted:
-            item.variant.product.wishlistItems.length > 0,
-        },
-      },
-    })),
-  };
-
-  return {
-    cart: transformedCart,
-    subtotal,
-    shipping,
-    tax,
-    total,
-  };
+  revalidatePath("/cart");
+  revalidatePath("/", "layout");
 }

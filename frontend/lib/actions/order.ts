@@ -1,19 +1,36 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
+import { createCheckout } from "@/lib/commerce/checkout";
+import { cancelOrder, requestReturn } from "@/lib/commerce/orders";
 
-export async function placeOrder(
-  addressId: string
-) {
-  const user = await getCurrentUser();
+export async function placeOrder(addressId: string, couponCode?: string) {
+  const user = await requireUser();
+  const order = await createCheckout(prisma, {
+    userId: user.userId,
+    addressId,
+    couponCode,
+  });
 
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
+  revalidatePath("/orders");
+  revalidatePath("/cart");
+  redirect(`/checkout/pay/${order.id}`);
+}
 
-  console.log(
-    "Place order for address:",
-    addressId
-  );
+export async function cancelCustomerOrder(orderId: string, reason: string) {
+  const user = await requireUser();
+  await cancelOrder(prisma, user.userId, orderId, reason);
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+}
+
+export async function requestCustomerReturn(orderId: string, reason: string) {
+  const user = await requireUser();
+  await requestReturn(prisma, user.userId, orderId, reason);
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
 }

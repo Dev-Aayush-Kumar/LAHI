@@ -50,7 +50,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      user,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+      },
     });
   } catch (error) {
     console.error(error);

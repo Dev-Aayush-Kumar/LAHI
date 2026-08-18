@@ -8,22 +8,32 @@ datasource db {
 }
 
 model User {
-  id             String         @id @default(cuid())
-  fullName       String
-  email          String         @unique
-  passwordHash   String
-  profileImage   String?
-  emailVerified  Boolean        @default(false)
-  sessionVersion Int            @default(1)
-  accountStatus  String         @default("ACTIVE")
-  lastLoginAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  orders         Order[]
-  wishlist       WishlistItem[]
-  addresses      Address[]
-  models         UserModel[]
-  tryOnJobs      TryOnJob[]
+  id                String             @id @default(cuid())
+  fullName          String
+  email             String             @unique
+  passwordHash      String
+  profileImage      String?
+  phone             String?
+  role              String             @default("CUSTOMER")
+  emailVerified     Boolean            @default(false)
+  sessionVersion    Int                @default(1)
+  accountStatus     String             @default("ACTIVE")
+  lastLoginAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  orders            Order[]
+  wishlist          WishlistItem[]
+  addresses         Address[]
+  models            UserModel[]
+  tryOnJobs         TryOnJob[]
+  reviews           Review[]
+  notifications     Notification[]
+  couponRedemptions CouponRedemption[]
+  returnRequests    ReturnRequest[]
+  mediaAssets       MediaAsset[]
+
+  @@index([role])
+  @@index([accountStatus])
 }
 
 model Category {
@@ -71,6 +81,11 @@ model Product {
   variants        ProductVariant[]
   wishlistItems   WishlistItem[]
   tryOnJobs       TryOnJob[]
+  reviews         Review[]
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([isPublished, isActive])
 }
 
 model ProductImage {
@@ -79,6 +94,8 @@ model ProductImage {
   sortOrder Int     @default(0)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
 }
 
 model ProductVariant {
@@ -92,14 +109,33 @@ model ProductVariant {
   cartItems CartItem[]
   inventory Inventory?
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model Inventory {
-  id        String         @id @default(cuid())
+  id        String              @id @default(cuid())
   quantity  Int
-  reserved  Int            @default(0)
-  variantId String         @unique
-  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  reserved  Int                 @default(0)
+  variantId String              @unique
+  variant   ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  movements InventoryMovement[]
+}
+
+model InventoryMovement {
+  id        String    @id @default(cuid())
+  inventoryId String
+  variantId String
+  orderId   String?
+  type      String
+  quantity  Int
+  reason    String?
+  createdAt DateTime  @default(now())
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([variantId, createdAt])
+  @@index([orderId])
 }
 
 model WishlistItem {
@@ -114,28 +150,43 @@ model WishlistItem {
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  orderNumber   String
-  userId        String
-  subtotal      Decimal     @db.Decimal(10, 2)
-  shipping      Decimal     @db.Decimal(10, 2)
-  tax           Decimal     @db.Decimal(10, 2)
-  totalAmount   Decimal     @db.Decimal(10, 2)
-  paymentMethod String
-  paymentStatus String      @default("PENDING")
-  orderStatus   String      @default("PLACED")
-  fullName      String
-  phone         String
-  addressLine1  String
-  addressLine2  String?
-  city          String
-  state         String
-  postalCode    String
-  country       String
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          User        @relation(fields: [userId], references: [id])
-  items         OrderItem[]
+  id                 String             @id @default(cuid())
+  orderNumber        String             @unique
+  userId             String
+  subtotal           Decimal            @db.Decimal(10, 2)
+  shipping           Decimal            @db.Decimal(10, 2)
+  tax                Decimal            @db.Decimal(10, 2)
+  discountAmount     Decimal            @default(0) @db.Decimal(10, 2)
+  totalAmount        Decimal            @db.Decimal(10, 2)
+  paymentMethod      String
+  paymentStatus      String             @default("PENDING")
+  orderStatus        String             @default("PENDING_PAYMENT")
+  couponCode         String?
+  idempotencyKey     String?            @unique
+  cancelledAt        DateTime?
+  cancellationReason String?
+  fullName           String
+  phone              String
+  addressLine1       String
+  addressLine2       String?
+  city               String
+  state              String
+  postalCode         String
+  country            String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id])
+  items              OrderItem[]
+  payments           Payment[]
+  returnRequests     ReturnRequest[]
+  refunds            Refund[]
+  couponRedemptions  CouponRedemption[]
+  inventoryMovements InventoryMovement[]
+  notifications      Notification[]
+
+  @@index([userId, createdAt])
+  @@index([orderStatus])
+  @@index([paymentStatus])
 }
 
 model OrderItem {
@@ -149,6 +200,9 @@ model OrderItem {
   quantity    Int
   price       Decimal @db.Decimal(10, 2)
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([variantId])
 }
 
 model Cart {
@@ -158,6 +212,9 @@ model Cart {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   items     CartItem[]
+
+  @@index([userId])
+  @@index([sessionId])
 }
 
 model CartItem {
@@ -188,6 +245,149 @@ model Address {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault])
+}
+
+model Payment {
+  id              String         @id @default(cuid())
+  orderId         String
+  provider        String
+  providerRef     String         @unique
+  amount          Decimal        @db.Decimal(10, 2)
+  currency        String         @default("INR")
+  status          String         @default("REQUIRES_ACTION")
+  clientSecret    String?
+  idempotencyKey  String?        @unique
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events          PaymentEvent[]
+  refunds         Refund[]
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  paymentId       String
+  type            String
+  providerEventId String   @unique
+  payload         Json
+  processedAt     DateTime @default(now())
+  payment         Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, processedAt])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  rating    Int
+  title     String?
+  body      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId, createdAt])
+}
+
+model Coupon {
+  id            String             @id @default(cuid())
+  code          String             @unique
+  type          String
+  value         Decimal            @db.Decimal(10, 2)
+  minOrder      Decimal            @default(0) @db.Decimal(10, 2)
+  maxUses       Int?
+  usedCount     Int                @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  redemptions   CouponRedemption[]
+}
+
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  userId    String
+  orderId   String
+  createdAt DateTime @default(now())
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, orderId])
+  @@index([userId])
+}
+
+model ReturnRequest {
+  id        String   @id @default(cuid())
+  orderId   String
+  userId    String
+  reason    String
+  status    String   @default("REQUESTED")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refunds   Refund[]
+
+  @@index([orderId])
+  @@index([userId, status])
+}
+
+model Refund {
+  id              String         @id @default(cuid())
+  orderId         String
+  paymentId       String?
+  returnRequestId String?
+  amount          Decimal        @db.Decimal(10, 2)
+  status          String         @default("PENDING")
+  providerRef     String?        @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  order           Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payment         Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  returnRequest   ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  orderId   String?
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+model MediaAsset {
+  id          String   @id @default(cuid())
+  ownerUserId String?
+  kind        String
+  contentType String
+  sizeBytes   Int
+  storageKey  String   @unique
+  checksum    String?
+  createdAt   DateTime @default(now())
+  owner       User?    @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  @@index([ownerUserId, kind])
 }
 
 enum PersonStatus {
@@ -202,11 +402,12 @@ enum TryOnJobStatus {
   PROCESSING
   COMPLETED
   FAILED
+  CANCELLED
 }
 
 model UserModel {
-  id              String       @id @default(cuid())
-  userId          String
+  id                    String       @id @default(cuid())
+  userId                String
   /// User-visible name
   /// Examples:
   /// Me
@@ -214,42 +415,69 @@ model UserModel {
   /// Mom
   /// Child
   /// Friend
-  name            String
+  name                  String
   /// Optional relationship label
-  relation        String?
-  isDefault       Boolean      @default(false)
-  status          PersonStatus @default(UPLOADING)
+  relation              String?
+  isDefault             Boolean      @default(false)
+  status                PersonStatus @default(UPLOADING)
   /// Original uploaded 360° video
-  sourceVideoUrl  String?
-  /// Canonical images extracted by LAHI
-  frontImageUrl   String?
-  leftImageUrl    String?
-  rightImageUrl   String?
-  backImageUrl    String?
-  /// Future AI assets
-  segmentationUrl String?
-  bodyMeshUrl     String?
-  embeddingUrl    String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tryOnJobs       TryOnJob[]
+  sourceVideoUrl        String?
+  /// Canonical images extracted by LAHI — AVAILABLE
+  frontImageUrl         String?
+  leftImageUrl          String?
+  rightImageUrl         String?
+  backImageUrl          String?
+  /// AVAILABLE when a pose provider returns data
+  poseJson              Json?
+  /// PLANNED / UNAVAILABLE: DensePose or equivalent
+  densePoseUrl          String?
+  /// PLANNED / UNAVAILABLE: reconstructed 3D body mesh
+  bodyMeshUrl           String?
+  /// AVAILABLE when a segmentation provider returns a mask
+  segmentationUrl       String?
+  /// PLANNED / UNAVAILABLE: body measurements
+  measurementsJson      Json?
+  /// PLANNED / UNAVAILABLE: embeddings/features
+  embeddingUrl          String?
+  representationVersion String?
+  provider              String?
+  modelVersion          String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tryOnJobs             TryOnJob[]
+
+  @@index([userId, isDefault])
 }
 
 model TryOnJob {
-  id          String         @id @default(cuid())
-  userId      String
-  modelId     String
-  productId   String?
-  status      TryOnJobStatus @default(QUEUED)
-  progress    Int            @default(0)
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime       @default(now())
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  model       UserModel      @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  product     Product?       @relation(fields: [productId], references: [id])
-  result      TryOnResult?
+  id             String         @id @default(cuid())
+  userId         String
+  modelId        String
+  productId      String?
+  status         TryOnJobStatus @default(QUEUED)
+  progress       Int            @default(0)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  requestId      String?        @unique
+  operation      String         @default("virtual_try_on")
+  remoteJobId    String?
+  provider       String?
+  modelVersion   String?
+  errorCode      String?
+  errorMessage   String?
+  correlationId  String?
+  inputAssetIds  Json?
+  outputAssetIds Json?
+  cancelledAt    DateTime?
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model          UserModel      @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  product        Product?       @relation(fields: [productId], references: [id])
+  result         TryOnResult?
+
+  @@index([userId, createdAt])
+  @@index([status])
 }
 
 model TryOnResult {

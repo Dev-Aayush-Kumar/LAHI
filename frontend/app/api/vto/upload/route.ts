@@ -51,7 +51,7 @@ export async function POST(
       (formData.get("relation") as string) ??
       "Self";
 
-    if (!video) {
+    if (!(video instanceof File)) {
       return NextResponse.json(
         {
           success: false,
@@ -63,8 +63,32 @@ export async function POST(
       );
     }
 
-    const extension =
-      video.name.split(".").pop() ?? "mp4";
+    const extensionByType: Record<string, string> = {
+      "video/mp4": "mp4",
+      "video/quicktime": "mov",
+      "video/webm": "webm",
+    };
+    const extension = extensionByType[video.type];
+
+    if (!extension) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Only MP4, MOV, and WebM videos are supported.",
+        },
+        { status: 415 }
+      );
+    }
+
+    if (video.size > 100 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Video exceeds the 100 MB size limit.",
+        },
+        { status: 413 }
+      );
+    }
 
     const fileName =
       `${randomUUID()}.${extension}`;

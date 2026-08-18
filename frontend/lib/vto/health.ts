@@ -1,11 +1,9 @@
-const AI_BASE_URL =
-  process.env.AI_SERVER_URL ??
-  "http://127.0.0.1:8000";
-
 export async function checkAIHealth() {
   try {
+    const baseUrl = process.env.AI_SERVER_URL?.replace(/\/$/, "");
+    if (!baseUrl) return false;
     const response = await fetch(
-      `${AI_BASE_URL}/pose/health`
+      `${baseUrl}/v1/health`
     );
 
     if (!response.ok) {

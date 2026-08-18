@@ -31,16 +31,22 @@ PATTERNS = [
 GARMENTS = [
     "shirt",
     "t-shirt",
+    "top",
+    "dress",
     "hoodie",
     "jacket",
-    "jeans",
-    "dress",
-    "kurta",
-    "blazer",
     "coat",
-    "skirt",
+    "sweater",
+    "jeans",
     "trousers",
-    "shorts"
+    "skirt",
+    "shorts",
+    "kurta",
+    "saree",
+    "salwar",
+    "lehenga",
+    "blazer",
+    "other apparel",
 ]
 
 
@@ -61,7 +67,9 @@ def infer_category(garment):
 
         "shirt": "topwear",
         "t-shirt": "topwear",
+        "top": "topwear",
         "hoodie": "topwear",
+        "sweater": "topwear",
         "jacket": "outerwear",
         "coat": "outerwear",
         "blazer": "outerwear",
@@ -72,7 +80,11 @@ def infer_category(garment):
         "skirt": "bottomwear",
 
         "dress": "onepiece",
-        "kurta": "ethnic"
+        "kurta": "ethnic",
+        "saree": "ethnic",
+        "salwar": "ethnic",
+        "lehenga": "ethnic",
+        "other apparel": "apparel",
     }
 
     return mapping.get(garment)

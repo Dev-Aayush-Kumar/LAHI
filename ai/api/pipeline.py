@@ -1,12 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import UploadFile
 from fastapi import File
 
-import os
-import shutil
-import tempfile
-
-from services.tryon_pipeline import process_tryon
+from api.upload_utils import remove_temporary_file, save_image_upload
 
 router = APIRouter(
     prefix="/pipeline",
@@ -19,37 +15,26 @@ async def process(
     person: UploadFile = File(...),
     garment: UploadFile = File(...),
 ):
+    from pipelines.tryon_pipeline import process_tryon
 
-    temp_dir = tempfile.mkdtemp()
 
-    person_path = os.path.join(
-        temp_dir,
-        person.filename,
-    )
-
-    garment_path = os.path.join(
-        temp_dir,
-        garment.filename,
-    )
-
-    with open(person_path, "wb") as f:
-        shutil.copyfileobj(
-            person.file,
-            f,
-        )
-
-    with open(garment_path, "wb") as f:
-        shutil.copyfileobj(
-            garment.file,
-            f,
-        )
+    person_path = None
+    garment_path = None
 
     try:
+        person_path = await save_image_upload(person)
+        garment_path = await save_image_upload(garment)
 
         result = process_tryon(
             person_path,
             garment_path,
         )
+
+        if not result.get("generatedImageUrl"):
+            raise HTTPException(
+                status_code=501,
+                detail="Virtual try-on inference is not implemented.",
+            )
 
         return {
             "success": True,
@@ -57,8 +42,7 @@ async def process(
         }
 
     finally:
-
-        shutil.rmtree(
-            temp_dir,
-            ignore_errors=True,
-        )
+        if person_path:
+            remove_temporary_file(person_path)
+        if garment_path:
+            remove_temporary_file(garment_path)

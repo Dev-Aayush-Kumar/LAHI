@@ -1,10 +1,9 @@
 import os
 os.environ["FLASH_ATTENTION_SKIP_IMPORT_CHECK"] = "1"
 from pathlib import Path
-
+from models.model_manager import DEVICE
 from transformers import AutoProcessor
 from transformers import AutoModelForCausalLM
-
 from models.model_manager import FLORENCE_MODEL
 from models.model_manager import models
 
@@ -37,13 +36,13 @@ class FlorenceLoader:
             attn_implementation="eager"
         )
 
+        self.model = self.model.to(DEVICE)
+
         models.register_florence(self)
 
         elapsed = time.time() - start
 
-        print(
-            f"Florence-2 Loaded in {elapsed:.2f} sec"
-        )
+        print(f"Florence loaded in {elapsed:.2f}s")
 
 
 florence = FlorenceLoader()
