@@ -18,11 +18,11 @@ def segment_garment(image_path: str):
     # Florence Detection
     florence_start = time.time()
 
-    box = detect_garment(image_path)
+    garment = detect_garment(image_path)
 
     print(f"Florence detection: {time.time() - florence_start:.2f}s")
 
-    if box is None:
+    if garment.bounding_box is None:
 
         return {
 
@@ -37,6 +37,7 @@ def segment_garment(image_path: str):
     # SAM2 Image Embedding
     sam_set_start = time.time()
 
+    box = np.asarray(garment.bounding_box.to_list(), dtype=np.float32)
     predictor.set_image(image_np)
 
     print(f"SAM2 set_image: {time.time() - sam_set_start:.2f}s")

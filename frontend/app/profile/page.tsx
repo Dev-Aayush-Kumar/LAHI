@@ -86,6 +86,21 @@ export default async function ProfilePage() {
           </div>
         </div>
 
+        <div className="mt-10 flex flex-wrap gap-4">
+          <a className="underline" href="/orders">
+            Orders
+          </a>
+          <a className="underline" href="/profile/addresses">
+            Addresses
+          </a>
+          <a className="underline" href="/profile/people">
+            People for try-on
+          </a>
+          <a className="underline" href="/wishlist">
+            Wishlist
+          </a>
+        </div>
+
         <div className="mt-10">
           <LogoutButton />
         </div>

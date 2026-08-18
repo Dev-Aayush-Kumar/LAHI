@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         fullName: true,
         email: true,
         profileImage: true,
+        role: true,
       },
     });
 

@@ -121,21 +121,10 @@ export default async function CheckoutPage() {
 
           </div>
 
-          <button
-            className="
-              mt-8
-              w-full
-              rounded-xl
-              bg-black
-              py-4
-              font-semibold
-              text-white
-              transition
-              hover:bg-gray-800
-            "
-          >
-            Continue to Payment
-          </button>
+          <p className="mt-8 text-sm text-gray-500">
+            Choose a delivery address on the left, then continue to the mock
+            payment step. Opening that page is not proof of payment.
+          </p>
 
         </aside>
 

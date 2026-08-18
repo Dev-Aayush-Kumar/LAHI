@@ -27,8 +27,7 @@ export const metadata: Metadata = {
     default: "LAHI",
     template: "%s | LAHI",
   },
-  description:
-    "AI-powered virtual fashion platform for personalized shopping.",
+  description: "LAHI — contemporary fashion e-commerce with virtual try-on.",
 };
 
 export default async function RootLayout({

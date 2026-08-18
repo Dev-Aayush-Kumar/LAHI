@@ -1,16 +1,17 @@
+import time
+
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
-from models.model_manager import SAM2_DIR
-from models.model_manager import models
-import torch
-import time
+from models.model_manager import (
+    DEVICE,
+    SAM2_DIR,
+    models,
+)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
 class SAMLoader:
 
     def __init__(self):
-
         self.predictor = None
 
     def load(self):
@@ -18,14 +19,14 @@ class SAMLoader:
         if self.predictor is not None:
             return
 
-        print("Loading SAM2...")
-
         start = time.time()
+
+        print("Loading SAM2...")
 
         model = build_sam2(
             "configs/sam2.1/sam2.1_hiera_t.yaml",
             str(SAM2_DIR / "checkpoints" / "sam2.1_hiera_tiny.pt"),
-            device=device,
+            device=DEVICE,
         )
 
         self.predictor = SAM2ImagePredictor(model)
@@ -33,7 +34,7 @@ class SAMLoader:
         models.register_sam(self)
 
         print(
-            f"SAM2 Loaded in {time.time()-start:.2f} sec"
+            f"SAM2 loaded in {time.time()-start:.2f}s"
         )
 
 

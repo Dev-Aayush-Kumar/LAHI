@@ -5,13 +5,6 @@ import torch
 from pathlib import Path
 from PIL import Image
 import uuid
-from diffusers import AutoencoderKL
-from diffusers import DDPMScheduler
-from transformers import AutoTokenizer
-from transformers import CLIPImageProcessor
-from transformers import CLIPTextModel
-from transformers import CLIPTextModelWithProjection
-from transformers import CLIPVisionModelWithProjection
 
 from models.model_manager import IDM_CKPT_DIR
 from models.model_manager import IDM_SRC_DIR
@@ -39,9 +32,25 @@ class IDMLoader:
         if self.pipe is not None:
             return self.pipe
 
-        if not IDM_CKPT_DIR.exists():
-            print(f"IDM-VTON weights not found at {IDM_CKPT_DIR}")
+        required_sources = (
+            IDM_SRC_DIR / "unet_hacked_tryon.py",
+            IDM_SRC_DIR / "unet_hacked_garmnet.py",
+            IDM_SRC_DIR / "tryon_pipeline.py",
+        )
+        if not IDM_CKPT_DIR.exists() or not all(
+            source.exists() for source in required_sources
+        ):
+            print(f"IDM-VTON assets are incomplete at {IDM_ROOT_DIR}")
             return None
+
+        from diffusers import AutoencoderKL, DDPMScheduler
+        from transformers import (
+            AutoTokenizer,
+            CLIPImageProcessor,
+            CLIPTextModel,
+            CLIPTextModelWithProjection,
+            CLIPVisionModelWithProjection,
+        )
 
         start = time.time()
 
@@ -168,18 +177,19 @@ class IDMLoader:
         garment = Image.open(garment_image).convert("RGB")
         mask = Image.open(mask_path).convert("L")
 
-        output = self.pipe(
-            image=person,
-            cloth=garment,
-            mask_image=mask,
-            num_inference_steps=30,
-            guidance_scale=2.0,
-        )
+        with torch.inference_mode():
+            output = self.pipe(
+                image=person,
+                cloth=garment,
+                mask_image=mask,
+                num_inference_steps=30,
+                guidance_scale=2.0,
+            )
 
         result = output.images[0]
 
         output_dir = (
-            IDM_ROOT_DIR.parent /
+            Path(__file__).resolve().parents[1] /
             "public" /
             "uploads" /
             "generated"

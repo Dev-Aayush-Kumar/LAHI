@@ -2,6 +2,8 @@ import { generateFrames } from "./frameExtractor";
 import { selectCanonicalFrames } from "./poseSelector";
 import { saveCanonicalImage } from "./storage";
 import { aiLog } from "./logger";
+import fs from "fs/promises";
+import path from "path";
 
 export type PreprocessingResult = {
   frontImageUrl?: string;
@@ -72,10 +74,19 @@ export async function preprocessVideo(
         )
       : undefined;
 
-  return {
+  const result = {
     frontImageUrl: front?.publicUrl,
     leftImageUrl: left?.publicUrl,
     rightImageUrl: right?.publicUrl,
     backImageUrl: back?.publicUrl,
   };
+
+  if (frames.length > 0) {
+    await fs.rm(path.dirname(frames[0].absolutePath), {
+      recursive: true,
+      force: true,
+    });
+  }
+
+  return result;
 }

@@ -15,17 +15,25 @@ MODEL_PATH = (
 )
 
 
-_options = vision.PoseLandmarkerOptions(
-    base_options=BaseOptions(
-        model_asset_path=str(MODEL_PATH)
-    ),
-    running_mode=vision.RunningMode.IMAGE,
-)
+_pose = None
 
 
-_pose = vision.PoseLandmarker.create_from_options(
-    _options
-)
+def _get_pose():
+    global _pose
+
+    if _pose is None:
+        if not MODEL_PATH.exists():
+            raise RuntimeError(f"Pose model is missing at {MODEL_PATH}")
+
+        options = vision.PoseLandmarkerOptions(
+            base_options=BaseOptions(
+                model_asset_path=str(MODEL_PATH)
+            ),
+            running_mode=vision.RunningMode.IMAGE,
+        )
+        _pose = vision.PoseLandmarker.create_from_options(options)
+
+    return _pose
 
 
 LEFT_SHOULDER = 11
@@ -88,7 +96,7 @@ def detect_pose(image_path: str):
         image_path
     )
 
-    result = _pose.detect(image)
+    result = _get_pose().detect(image)
 
     if len(result.pose_landmarks) == 0:
         return None

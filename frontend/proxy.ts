@@ -11,6 +11,8 @@ const PROTECTED_ROUTES = [
   "/try-on",
   "/wishlist",
   "/orders",
+  "/checkout",
+  "/admin",
 ];
 
 const CART_COOKIE = "lahi_cart";

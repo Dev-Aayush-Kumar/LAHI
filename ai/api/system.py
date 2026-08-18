@@ -1,12 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import UploadFile
 from fastapi import File
-import tempfile
-import os
-from services.sam2.mask_generator import generate_mask
-from services.florence_caption import generate_caption
+from api.upload_utils import remove_temporary_file, save_image_upload
 from models.model_manager import models
-from services.pipeline import process_pipeline
 router = APIRouter(
     prefix="/system",
     tags=["System"]
@@ -15,26 +11,26 @@ router = APIRouter(
 
 @router.get("/health")
 def health():
-
     return {
         "status": "ok",
         "service": "LAHI AI"
     }
+
+
+@router.get("/ready")
+def ready():
+    status = models.info()
+    if not status["ready"]:
+        raise HTTPException(status_code=503, detail=status)
+    return status
 @router.post("/caption")
 async def caption(
     image: UploadFile = File(...)
 ):
+    from services.florence_caption import generate_caption
 
-    suffix = os.path.splitext(image.filename)[1]
 
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    ) as temp:
-
-        temp.write(await image.read())
-
-        path = temp.name
+    path = await save_image_upload(image)
 
     try:
 
@@ -42,22 +38,15 @@ async def caption(
 
     finally:
 
-        os.remove(path)
+        remove_temporary_file(path)
 @router.post("/mask")
 async def mask(
     image: UploadFile = File(...)
 ):
+    from services.sam2.mask_generator import generate_mask
 
-    suffix = os.path.splitext(image.filename)[1]
 
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    ) as temp:
-
-        temp.write(await image.read())
-
-        path = temp.name
+    path = await save_image_upload(image)
 
     try:
 
@@ -67,7 +56,7 @@ async def mask(
 
     finally:
 
-        os.remove(path)
+        remove_temporary_file(path)
 
 @router.get("/models")
 def model_status():
@@ -78,23 +67,7 @@ def model_status():
 async def pipeline(
     image: UploadFile = File(...)
 ):
-    suffix = os.path.splitext(image.filename)[1]
-
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    ) as temp:
-
-        temp.write(await image.read())
-        path = temp.name
-
-    try:
-
-        result = process_pipeline(path)
-
-        return result
-
-    finally:
-
-        if os.path.exists(path):
-            os.remove(path)
+    raise HTTPException(
+        status_code=501,
+        detail="The experimental image pipeline is not enabled.",
+    )

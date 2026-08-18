@@ -1,7 +1,6 @@
 from pathlib import Path
 import torch
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
+from models.model_manager import models
 
 
 BASE = Path(__file__).resolve().parents[2]
@@ -32,6 +31,19 @@ def load_sam2():
     if SAM2_PREDICTOR is not None:
         return SAM2_PREDICTOR
 
+    if not CHECKPOINT.exists() or not CONFIG.exists():
+        raise RuntimeError(
+            f"SAM2 assets are missing: {CHECKPOINT} and {CONFIG}"
+        )
+
+    try:
+        from sam2.build_sam import build_sam2
+        from sam2.sam2_image_predictor import SAM2ImagePredictor
+    except ImportError as error:
+        raise RuntimeError(
+            "SAM2 is not installed or available on PYTHONPATH"
+        ) from error
+
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
     )
@@ -45,6 +57,7 @@ def load_sam2():
     )
 
     SAM2_PREDICTOR = SAM2ImagePredictor(model)
+    models.register_sam(SAM2_PREDICTOR)
 
     print("SAM2 Loaded")
 

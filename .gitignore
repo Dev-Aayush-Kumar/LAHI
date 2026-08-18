@@ -64,6 +64,8 @@ frontend/public/uploads/videos/*
 frontend/public/uploads/frames/*
 frontend/public/uploads/generated/*
 frontend/public/uploads/canonical/*
+ai/public/uploads/generated/*
+ai/public/uploads/generated_masks/*
 
 !frontend/public/uploads/videos/.gitkeep
 !frontend/public/uploads/frames/.gitkeep
@@ -87,3 +89,6 @@ flash_attn/
 lahi_structure.txt
 lahi_current_structure.txt
 npm_packages.txt
+
+# Local runtime storage
+ai/var/

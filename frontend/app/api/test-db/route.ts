@@ -1,14 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const users = await prisma.user.findMany();
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const count = await prisma.user.count();
 
     return NextResponse.json({
       success: true,
-      count: users.length,
-      users,
+      count,
     });
   } catch (error) {
     console.error(error);

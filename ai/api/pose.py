@@ -5,11 +5,8 @@ from fastapi import (
     HTTPException
 )
 
-import os
-import tempfile
-
-from preprocessing.frame_loader import validate_image
-from models.pose import detect_pose
+from api.upload_utils import remove_temporary_file, save_image_upload
+from models.model_manager import POSE_MODEL
 
 router = APIRouter(
     prefix="/pose",
@@ -19,9 +16,14 @@ router = APIRouter(
 
 @router.get("/health")
 def health():
-
+    if not POSE_MODEL.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="Pose model is unavailable.",
+        )
     return {
-        "message": "Pose service ready"
+        "status": "ready",
+        "message": "Pose service ready",
     }
 
 
@@ -29,19 +31,15 @@ def health():
 async def detect(
     image: UploadFile = File(...)
 ):
+    from models.pose import detect_pose
 
-    suffix = os.path.splitext(image.filename)[1]
 
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    ) as temp:
+    temp_path = await save_image_upload(image)
 
-        temp.write(await image.read())
-
-        temp_path = temp.name
 
     try:
+
+        from preprocessing.frame_loader import validate_image
 
         validate_image(temp_path)
 
@@ -64,13 +62,12 @@ async def detect(
         }
 
     except Exception as e:
-
+        print(f"Pose detection failed: {e}")
         raise HTTPException(
             status_code=500,
-            detail=str(e)
-        )
+            detail="Pose detection failed.",
+        ) from e
 
     finally:
 
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        remove_temporary_file(temp_path)

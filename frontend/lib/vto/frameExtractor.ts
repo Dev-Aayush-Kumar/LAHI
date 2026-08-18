@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 
 import { runFFmpeg } from "./ffmpegRunner";
 
@@ -19,21 +20,13 @@ export async function generateFrames(
     process.cwd(),
     "public",
     "uploads",
-    "frames"
+    "frames",
+    randomUUID()
   );
 
   await fs.mkdir(frameFolder, {
     recursive: true,
   });
-
-  // Clean previous extracted frames
-  const existingFiles = await fs.readdir(frameFolder);
-
-  await Promise.all(
-    existingFiles.map((file) =>
-      fs.unlink(path.join(frameFolder, file))
-    )
-  );
 
   const outputPattern = path.join(
     frameFolder,
