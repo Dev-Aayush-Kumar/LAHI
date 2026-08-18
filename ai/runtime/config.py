@@ -8,8 +8,6 @@ def env(name: str, default: str = "") -> str:
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 STORAGE_ROOT = Path(env("AI_STORAGE_ROOT") or str(BASE_DIR / "var" / "assets"))
-EXECUTION_MODE = (env("AI_EXECUTION_MODE") or "mock").lower()
-QUEUE_BACKEND = (env("AI_QUEUE_BACKEND") or "inline").lower()
 SERVER_TOKEN = env("AI_SERVER_TOKEN")
 ALLOWED_ORIGINS = [
     origin.strip()
@@ -21,5 +19,13 @@ ALLOWED_ORIGINS = [
 ]
 
 
+def execution_mode() -> str:
+    return (env("AI_EXECUTION_MODE") or "mock").lower()
+
+
+def queue_backend() -> str:
+    return (env("AI_QUEUE_BACKEND") or "inline").lower()
+
+
 def is_mock_mode() -> bool:
-    return EXECUTION_MODE != "gpu"
+    return execution_mode() != "gpu"

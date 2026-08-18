@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 
 from services.mask_refinement import refine_mask
-from services.sam2_loader import sam
+from loaders.sam2_loader import sam
 
 
 OUTPUT_DIR = (
