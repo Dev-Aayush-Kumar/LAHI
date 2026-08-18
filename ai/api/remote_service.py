@@ -19,7 +19,7 @@ from api.remote_contracts import (
 from api.upload_utils import save_asset_upload
 from models.model_manager import models
 from pipelines.orchestrator import run_garment_job, run_tryon_job
-from runtime.config import EXECUTION_MODE, is_mock_mode
+from runtime.config import execution_mode, is_mock_mode
 from runtime.jobs import create_job, get_job, update_job
 from runtime.logging import log_event
 from runtime.queue import get_queue
@@ -44,7 +44,7 @@ def service_health():
     return {
         "status": "healthy",
         "service": "LAHI AI service",
-        "execution_mode": EXECUTION_MODE,
+        "execution_mode": execution_mode(),
     }
 
 
@@ -54,7 +54,7 @@ def service_readiness():
     ready = is_mock_mode() or status["ready"]
     return {
         "status": "ready" if ready else "not_ready",
-        "execution_mode": EXECUTION_MODE,
+        "execution_mode": execution_mode(),
         "checks": status,
     }
 
@@ -68,7 +68,7 @@ def capabilities():
     status = models.info()
     mock = is_mock_mode()
     return CapabilityResponse(
-        execution_mode=EXECUTION_MODE,
+        execution_mode=execution_mode(),
         capabilities=[
             Capability(
                 name="garment_analysis",

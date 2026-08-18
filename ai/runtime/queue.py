@@ -4,7 +4,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from runtime.config import QUEUE_BACKEND
+from runtime.config import queue_backend
 from runtime.logging import log_event
 
 
@@ -45,7 +45,7 @@ _queue: QueueBackend | None = None
 def get_queue() -> QueueBackend:
     global _queue
     if _queue is None:
-        _queue = ThreadQueue() if QUEUE_BACKEND == "thread" else InlineQueue()
+        _queue = ThreadQueue() if queue_backend() == "thread" else InlineQueue()
     return _queue
 
 

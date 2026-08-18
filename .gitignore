@@ -36,6 +36,10 @@ Thumbs.db
 # ==========================
 .vscode/
 .idea/
+.cursor/
+
+# Temporary test assets
+ai/test.jpg
 
 # ==========================
 # TypeScript
