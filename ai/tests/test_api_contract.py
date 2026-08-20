@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app import app
+from runtime.jobs import reset_jobs_for_tests
 from runtime.queue import reset_queue_for_tests
 
 
@@ -15,6 +16,7 @@ def client(monkeypatch):
     monkeypatch.setenv("AI_EXECUTION_MODE", "mock")
     monkeypatch.setenv("AI_QUEUE_BACKEND", "inline")
     reset_queue_for_tests()
+    reset_jobs_for_tests()
     return TestClient(app)
 
 
@@ -106,3 +108,56 @@ def test_valid_image_upload_returns_job_contract(client, monkeypatch):
     assert body["operation"] == "garment_analysis"
     assert body["status"] == "completed"
     assert body["result"]["parsed"]["garment_type"] == "shirt"
+
+
+def _upload_png(client, name="image.png"):
+    response = client.post(
+        "/v1/assets",
+        headers={"Authorization": "Bearer test-token"},
+        files={"file": (name, image_bytes(), "image/png")},
+        data={"kind": "image"},
+    )
+    assert response.status_code == 200
+    return response.json()["asset_id"]
+
+
+def test_every_advertised_async_operation_has_an_execution_path(client):
+    capabilities = client.get(
+        "/v1/capabilities",
+        headers={"Authorization": "Bearer test-token"},
+    )
+    assert capabilities.status_code == 200
+    names = {item["name"] for item in capabilities.json()["capabilities"]}
+    assert names == {"garment_analysis", "human_preprocessing", "virtual_try_on"}
+
+    person = _upload_png(client, "person.png")
+    garment = _upload_png(client, "garment.png")
+
+    payloads = {
+        "garment_analysis": [{"asset_id": garment}],
+        "human_preprocessing": [{"asset_id": person}],
+        "virtual_try_on": [{"asset_id": person}, {"asset_id": garment}],
+    }
+
+    for operation in names:
+        created = client.post(
+            "/v1/jobs",
+            headers={"Authorization": "Bearer test-token"},
+            json={
+                "operation": operation,
+                "asynchronous": True,
+                "assets": payloads[operation],
+            },
+        )
+        assert created.status_code == 200, operation
+        body = created.json()
+        assert body["operation"] == operation
+        assert body["status"] != "queued"
+        assert body["status"] in {"processing", "completed", "failed"}
+        status = client.get(
+            f"/v1/jobs/{body['request_id']}",
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert status.status_code == 200
+        assert status.json()["status"] in {"processing", "completed", "failed"}
+        assert status.json()["status"] != "queued"

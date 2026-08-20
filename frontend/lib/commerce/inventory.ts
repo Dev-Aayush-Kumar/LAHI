@@ -19,6 +19,45 @@ export function availableStock(quantity: number, reserved: number) {
   return Math.max(quantity - reserved, 0);
 }
 
+export function assertQuantityCoversReserved(quantity: number, reserved: number) {
+  if (!Number.isInteger(quantity) || quantity < 0) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      "quantity must be a non-negative integer.",
+      400
+    );
+  }
+  if (quantity < reserved) {
+    throw new AppError(
+      ErrorCodes.VALIDATION_ERROR,
+      `quantity (${quantity}) cannot be below reserved inventory (${reserved}).`,
+      400
+    );
+  }
+}
+
+export async function setOnHandQuantity(
+  tx: Db,
+  variantId: string,
+  quantity: number
+) {
+  const inventory = await tx.inventory.findUnique({
+    where: { variantId },
+  });
+  if (!inventory) {
+    throw new AppError(
+      ErrorCodes.NOT_FOUND,
+      "Inventory was not found for this variant.",
+      404
+    );
+  }
+  assertQuantityCoversReserved(quantity, inventory.reserved);
+  return tx.inventory.update({
+    where: { variantId },
+    data: { quantity },
+  });
+}
+
 async function lockInventory(tx: Db, variantId: string) {
   const rows = await tx.$queryRaw<InventoryRow[]>`
     SELECT id, quantity, reserved

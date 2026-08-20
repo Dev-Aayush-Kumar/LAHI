@@ -13,7 +13,7 @@
     "db:migrate:status": "prisma migrate status",
     "db:smoke": "tsx scripts/db-smoke.ts",
     "auth:smoke": "tsx scripts/auth-smoke.ts",
-    "test": "tsx --test tests/commerce.test.ts tests/payments.test.ts tests/storage.test.ts tests/errors.test.ts",
+    "test": "tsx --test tests/commerce.test.ts tests/payments.test.ts tests/storage.test.ts tests/errors.test.ts tests/vto-media.test.ts tests/inventory.test.ts",
     "test:db": "tsx tests/commerce.db.test.ts"
   },
   "dependencies": {

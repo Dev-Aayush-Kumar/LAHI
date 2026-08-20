@@ -42,5 +42,5 @@ def process_tryon(
         "generatedImageUrl": result.get("generated_image_url", ""),
         "modelName": result.get("provider", "mock-tryon"),
         "generationTimeMs": int(completed.timing.duration_ms or 0) if completed else 0,
-        "synthetic": True,
+        "synthetic": bool(result.get("synthetic")),
     }

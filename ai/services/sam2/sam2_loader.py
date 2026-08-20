@@ -1,25 +1,5 @@
-from pathlib import Path
 import torch
-from models.model_manager import models
-
-
-BASE = Path(__file__).resolve().parents[2]
-
-CHECKPOINT = (
-    BASE /
-    "weights" /
-    "sam2" /
-    "checkpoints" /
-    "sam2.1_hiera_tiny.pt"
-)
-
-CONFIG = (
-    BASE /
-    "weights" /
-    "sam2" /
-    "configs" /
-    "sam2.1_hiera_t.yaml"
-)
+from models.model_manager import models, sam2_checkpoint_path, sam2_config_path
 
 SAM2_PREDICTOR = None
 
@@ -31,9 +11,12 @@ def load_sam2():
     if SAM2_PREDICTOR is not None:
         return SAM2_PREDICTOR
 
-    if not CHECKPOINT.exists() or not CONFIG.exists():
+    checkpoint = sam2_checkpoint_path()
+    config = sam2_config_path()
+
+    if not checkpoint.exists() or not config.exists():
         raise RuntimeError(
-            f"SAM2 assets are missing: {CHECKPOINT} and {CONFIG}"
+            f"SAM2 assets are missing: {checkpoint} and {config}"
         )
 
     try:
@@ -51,8 +34,8 @@ def load_sam2():
     print(f"Loading SAM2 on {device}")
 
     model = build_sam2(
-        str(CONFIG),
-        str(CHECKPOINT),
+        str(config),
+        str(checkpoint),
         device=device
     )
 

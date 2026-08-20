@@ -3,6 +3,7 @@ uvicorn
 opencv-python
 mediapipe
 numpy
+scipy>=1.14.1,<2
 pillow
 python-multipart
 transformers

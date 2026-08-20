@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { prisma } from "../lib/prisma";
 import { createCheckout } from "../lib/commerce/checkout";
 import { applyPaymentEvent, cancelOrder } from "../lib/commerce/orders";
+import { setOnHandQuantity } from "../lib/commerce/inventory";
+import { AppError, ErrorCodes } from "../lib/errors";
 
 async function main() {
   if (!process.env.DATABASE_URL) {
@@ -45,6 +47,18 @@ async function main() {
   await prisma.cartItem.create({
     data: { cartId: cart.id, variantId: variant.id, quantity: 1 },
   });
+  const inventoryVariant = await prisma.productVariant.create({
+    data: {
+      productId: variant.productId,
+      sku: `inv-test-${marker}`,
+      size: "TEST",
+      color: "inventory-test",
+      price: 10,
+      inventory: {
+        create: { quantity: 10, reserved: 5 },
+      },
+    },
+  });
 
   try {
     const order = await createCheckout(prisma, {
@@ -85,6 +99,20 @@ async function main() {
       where: { id: order.id },
     });
     assert.equal(cancelled.orderStatus, "CANCELLED");
+
+    await assert.rejects(
+      () => setOnHandQuantity(prisma, inventoryVariant.id, 4),
+      (error: unknown) =>
+        error instanceof AppError && error.code === ErrorCodes.VALIDATION_ERROR
+    );
+    const unchanged = await prisma.inventory.findUniqueOrThrow({
+      where: { variantId: inventoryVariant.id },
+    });
+    assert.equal(unchanged.quantity, 10);
+    assert.equal(unchanged.reserved, 5);
+
+    const updated = await setOnHandQuantity(prisma, inventoryVariant.id, 5);
+    assert.equal(updated.quantity, 5);
     console.log("commerce.db.test ok");
   } finally {
     await prisma.paymentEvent.deleteMany({
@@ -93,6 +121,10 @@ async function main() {
     await prisma.refund.deleteMany({ where: { order: { userId: user.id } } });
     await prisma.order.deleteMany({ where: { userId: user.id } });
     await prisma.cart.deleteMany({ where: { userId: user.id } });
+    await prisma.inventory.deleteMany({
+      where: { variantId: inventoryVariant.id },
+    });
+    await prisma.productVariant.delete({ where: { id: inventoryVariant.id } });
     await prisma.user.delete({ where: { id: user.id } });
     await prisma.$disconnect();
   }

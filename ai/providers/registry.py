@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from providers.mock import (
     MockGarmentProvider,
     MockPoseProvider,
@@ -5,6 +7,18 @@ from providers.mock import (
     MockTryOnProvider,
 )
 from runtime.config import is_mock_mode
+from services.garment_bbox import (
+    CrossImageBoundingBoxError,
+    assert_bbox_matches_image,
+    build_florence_garment_schema,
+)
+
+
+def _florence_outputs(image_path: str):
+    from services.florence_caption import generate_caption
+    from services.florence_detection import detect_garment
+
+    return generate_caption(image_path), detect_garment(image_path)
 
 
 class FlorenceGarmentAdapter:
@@ -12,37 +26,19 @@ class FlorenceGarmentAdapter:
     version = "2-large-or-base"
 
     def analyze(self, image_path: str, asset_id: str | None = None):
-        from services.florence_caption import generate_caption
-        from services.garment_schema import GarmentSchema, ProcessingStatus
+        from PIL import Image
+        from models.model_manager import FLORENCE_MODEL
 
-        result = generate_caption(image_path)
-        parsed = result.get("parsed") or {}
-        schema = GarmentSchema(
-            garment_type=parsed.get("garment_type"),
-            category=parsed.get("category"),
-            confidence=parsed.get("confidence"),
-            attributes=parsed.get("attributes") or {},
-            primary_color=parsed.get("primary_color"),
-            secondary_color=parsed.get("secondary_color"),
-            fabric=parsed.get("fabric"),
-            pattern=parsed.get("pattern"),
-            sleeve=parsed.get("sleeve"),
-            fit=parsed.get("fit"),
-            style=parsed.get("style"),
-            occasion=parsed.get("occasion"),
-            gender=parsed.get("gender"),
-            season=parsed.get("season"),
-            source_asset_ref=asset_id,
-            model_provider="microsoft",
-            model_name=parsed.get("model_name"),
-            processing_status=ProcessingStatus.COMPLETED,
+        image = Image.open(image_path).convert("RGB")
+        caption, detection = _florence_outputs(image_path)
+        parsed = caption.get("parsed") or {}
+        return build_florence_garment_schema(
+            parsed=parsed,
+            detection=detection,
+            image_size=image.size,
+            asset_id=asset_id,
+            model_name=parsed.get("model_name") or FLORENCE_MODEL,
         )
-        if parsed.get("bounding_box"):
-            from services.garment_schema import BoundingBox
-
-            box = parsed["bounding_box"]
-            schema.bounding_box = BoundingBox(*box)
-        return schema
 
 
 class SAM2Adapter:
@@ -50,17 +46,32 @@ class SAM2Adapter:
     version = "local"
 
     def segment(self, image_path: str, garment, asset_id: str | None = None):
-        from services.sam2_segmentation import segment_person
+        from PIL import Image
         import numpy as np
 
-        if not garment.bounding_box:
-            raise RuntimeError("SAM2 requires a garment bounding box.")
-        bbox = np.array(garment.bounding_box.to_list(), dtype=np.float32)
+        image = Image.open(image_path).convert("RGB")
+        width, height = image.size
+        if garment.bounding_box is not None:
+            box = assert_bbox_matches_image(
+                garment,
+                asset_id=asset_id,
+                image_size=(width, height),
+            )
+            bbox = np.array(box.to_list(), dtype=np.float32)
+        else:
+            bbox = np.array(
+                [0.0, 0.0, float(max(width - 1, 0)), float(max(height - 1, 0))],
+                dtype=np.float32,
+            )
+        from services.sam2_segmentation import segment_person
+
         mask_path = segment_person(image_path, bbox)
         return {
             "mask_path_internal": mask_path,
             "provider": self.name,
             "version": self.version,
+            "source_asset_id": asset_id,
+            "image_size": [width, height],
         }
 
 
@@ -98,6 +109,12 @@ class IDMAdapter:
         )
 
 
+def person_segmentation_input(garment):
+    """Drop garment-image geometry before person-image segmentation."""
+
+    return replace(garment, bounding_box=None)
+
+
 def get_providers():
     if is_mock_mode():
         return {
@@ -112,3 +129,14 @@ def get_providers():
         "pose": PoseAdapter(),
         "tryon": IDMAdapter(),
     }
+
+
+__all__ = [
+    "CrossImageBoundingBoxError",
+    "FlorenceGarmentAdapter",
+    "IDMAdapter",
+    "PoseAdapter",
+    "SAM2Adapter",
+    "get_providers",
+    "person_segmentation_input",
+]

@@ -1,13 +1,12 @@
 import time
 
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
-
 from models.model_manager import (
     DEVICE,
-    SAM2_DIR,
     models,
+    sam2_checkpoint_path,
+    sam2_config_path,
 )
+
 
 class SAMLoader:
 
@@ -23,9 +22,12 @@ class SAMLoader:
 
         print("Loading SAM2...")
 
+        from sam2.build_sam import build_sam2
+        from sam2.sam2_image_predictor import SAM2ImagePredictor
+
         model = build_sam2(
-            "configs/sam2.1/sam2.1_hiera_t.yaml",
-            str(SAM2_DIR / "checkpoints" / "sam2.1_hiera_tiny.pt"),
+            str(sam2_config_path()),
+            str(sam2_checkpoint_path()),
             device=DEVICE,
         )
 

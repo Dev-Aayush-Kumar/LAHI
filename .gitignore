@@ -50,11 +50,16 @@ ai/test.jpg
 # Python
 # ==========================
 __pycache__/
-*.pyc
+**/__pycache__/
+*.py[cod]
+*$py.class
 *.pyo
 ai/.venv/
 ai/.env
 .pytest_cache/
+
+# Hugging Face / local model caches inside the repo
+**/.cache/huggingface/
 
 # ==========================
 # AI Models

@@ -3,6 +3,7 @@ import { AppError, ErrorCodes } from "@/lib/errors";
 import { callAI, getAIJson, postAIJson } from "@/lib/vto/aiClient";
 import { imageUrlToFile } from "@/lib/vto/imageLoader";
 import { log } from "@/lib/logger";
+import { browserFacingResultFromRemote } from "@/lib/vto/media";
 
 async function uploadAsset(file: File, kind: string) {
   const form = new FormData();
@@ -127,17 +128,20 @@ export async function syncTryOnJob(jobId: string, userId: string) {
     },
   });
 
-  if (status === "COMPLETED" && remote.result?.generated_image_url && !job.result) {
-    await prisma.tryOnResult.create({
-      data: {
-        jobId: job.id,
-        generatedImageUrl: remote.result.generated_image_url,
-        modelName: remote.model?.model ?? remote.model?.provider,
-        generationTimeMs: remote.timing?.duration_ms
-          ? Math.round(remote.timing.duration_ms)
-          : null,
-      },
-    });
+  if (status === "COMPLETED" && remote.result && !job.result) {
+    const generatedImageUrl = browserFacingResultFromRemote(job.id, remote.result);
+    if (generatedImageUrl) {
+      await prisma.tryOnResult.create({
+        data: {
+          jobId: job.id,
+          generatedImageUrl,
+          modelName: remote.model?.model ?? remote.model?.provider,
+          generationTimeMs: remote.timing?.duration_ms
+            ? Math.round(remote.timing.duration_ms)
+            : null,
+        },
+      });
+    }
   }
 
   return prisma.tryOnJob.findUniqueOrThrow({

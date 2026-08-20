@@ -22,12 +22,15 @@ class ProcessingStatus(str, Enum):
 
 @dataclass(frozen=True)
 class BoundingBox:
-    """Pixel-space, top-left-origin bounding box."""
+    """Pixel-space, top-left-origin bounding box for a single source image."""
 
     x_min: float
     y_min: float
     x_max: float
     y_max: float
+    source_asset_ref: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
 
     def __post_init__(self):
         if self.x_min < 0 or self.y_min < 0:

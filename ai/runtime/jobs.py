@@ -12,6 +12,19 @@ _LOCK = threading.Lock()
 _JOBS: dict[str, JobResponse] = {}
 _PROGRESS: dict[str, int] = {}
 
+TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
+ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
+    "pending": frozenset({"queued", "processing", "cancelled", "failed"}),
+    "queued": frozenset({"processing", "cancelled", "failed"}),
+    "processing": frozenset({"completed", "failed", "cancelled"}),
+}
+
+
+class JobCancelled(Exception):
+    def __init__(self, request_id: str):
+        super().__init__(f"Job {request_id} was cancelled.")
+        self.request_id = request_id
+
 
 def create_job(
     operation: str,
@@ -42,6 +55,11 @@ def get_job(request_id: str) -> JobResponse | None:
         return job
 
 
+def is_cancelled(request_id: str) -> bool:
+    job = get_job(request_id)
+    return job is not None and job.status == "cancelled"
+
+
 def update_job(
     request_id: str,
     *,
@@ -55,7 +73,12 @@ def update_job(
         job = _JOBS.get(request_id)
         if job is None:
             return None
-        if status:
+        if job.status in TERMINAL_STATUSES:
+            return job
+        if status and status != job.status:
+            allowed = ALLOWED_TRANSITIONS.get(job.status, frozenset())
+            if status not in allowed:
+                return job
             job.status = status
         if progress is not None:
             job.progress = progress
@@ -66,7 +89,7 @@ def update_job(
             job.error = error
         if model is not None:
             job.model = model
-        if status in {"completed", "failed", "cancelled"}:
+        if job.status in TERMINAL_STATUSES:
             completed = datetime.now(timezone.utc)
             started = job.timing.started_at
             duration = (completed - started).total_seconds() * 1000
@@ -75,5 +98,22 @@ def update_job(
         return job
 
 
+def checkpoint_job(request_id: str, **kwargs: Any) -> JobResponse:
+    """Update a job or raise if it was cancelled before/during the write."""
+
+    if is_cancelled(request_id):
+        raise JobCancelled(request_id)
+    updated = update_job(request_id, **kwargs)
+    if updated is None or updated.status == "cancelled":
+        raise JobCancelled(request_id)
+    return updated
+
+
 def mark_timing_start(request_id: str) -> float:
     return time.perf_counter()
+
+
+def reset_jobs_for_tests() -> None:
+    with _LOCK:
+        _JOBS.clear()
+        _PROGRESS.clear()

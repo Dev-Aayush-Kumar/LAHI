@@ -18,6 +18,32 @@ SAM2_DIR = WEIGHTS_DIR / "sam2"
 
 POSE_MODEL = WEIGHTS_DIR / "pose_landmarker_lite.task"
 
+SAM2_CONFIG_HYDRA = SAM2_DIR / "configs" / "sam2.1" / "sam2.1_hiera_t.yaml"
+SAM2_CONFIG_FLAT = SAM2_DIR / "configs" / "sam2.1_hiera_t.yaml"
+SAM2_CHECKPOINT = SAM2_DIR / "checkpoints" / "sam2.1_hiera_tiny.pt"
+
+
+def sam2_checkpoint_path() -> Path:
+    """Absolute checkpoint path under the AI weights directory."""
+
+    return SAM2_CHECKPOINT.resolve()
+
+
+def sam2_config_path() -> Path:
+    """Absolute SAM2 config path, independent of process CWD.
+
+    Prefers the hydra-style layout under ``weights/sam2`` when present,
+    otherwise the flat config used by the local weights checkout.
+    """
+
+    hydra = SAM2_CONFIG_HYDRA.resolve()
+    flat = SAM2_CONFIG_FLAT.resolve()
+    if hydra.exists():
+        return hydra
+    if flat.exists():
+        return flat
+    return hydra
+
 # External AI repositories
 IDM_ROOT_DIR = BASE_DIR / "external" / "IDM-VTON"
 IDM_CKPT_DIR = IDM_ROOT_DIR / "ckpt"

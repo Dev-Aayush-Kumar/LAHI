@@ -14,7 +14,15 @@ class MockGarmentProvider:
         return GarmentSchema(
             garment_type="shirt",
             category="tops",
-            bounding_box=BoundingBox(8, 8, 56, 56),
+            bounding_box=BoundingBox(
+                8,
+                8,
+                56,
+                56,
+                source_asset_ref=asset_id or image_path,
+                image_width=64,
+                image_height=64,
+            ),
             confidence=0.42,
             attributes={"synthetic": True, "mock": True},
             primary_color="test-magenta",

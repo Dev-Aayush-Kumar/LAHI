@@ -55,3 +55,20 @@ export async function postAIJson(endpoint: string, body: unknown) {
   }
   return response.json();
 }
+
+export async function getAIBinary(endpoint: string) {
+  const { baseUrl, token } = aiConfig();
+  if (!token) {
+    throw new Error("AI_SERVER_TOKEN is not configured.");
+  }
+  const response = await fetch(`${baseUrl}${endpoint}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(`AI Server Error (${response.status})`);
+  }
+  return {
+    bytes: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get("content-type") || "application/octet-stream",
+  };
+}

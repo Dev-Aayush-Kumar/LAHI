@@ -1,11 +1,10 @@
 from PIL import Image
-import numpy as np
 import torch
 
 from loaders.florence_loader import florence
 from models.model_manager import DEVICE
 from models.model_manager import FLORENCE_MODEL
-from services.garment_schema import BoundingBox
+from services.garment_bbox import extract_florence_detection_box
 from services.garment_schema import GarmentSchema
 from services.garment_schema import ProcessingStatus
 
@@ -75,9 +74,13 @@ def detect_garment(
     print("\n========== BBOXES ==========")
     print(detections.get("bboxes"))
 
-    boxes = detections.get("bboxes", [])
+    box = extract_florence_detection_box(
+        result,
+        image_size=image.size,
+        source_asset_ref=image_path,
+    )
 
-    if len(boxes) == 0:
+    if box is None:
         return GarmentSchema(
             source_asset_ref=image_path,
             model_provider="microsoft",
@@ -89,24 +92,11 @@ def detect_garment(
             },
         )
 
-    box = np.array(boxes[0], dtype=np.float32)
-
-    # Ensure proper order
-    x1, y1, x2, y2 = box
-
-    x1, x2 = sorted([x1, x2])
-    y1, y2 = sorted([y1, y2])
-
-    box = np.array([x1, y1, x2, y2], dtype=np.float32)
-
-    print("\n========== FINAL BOX ==========")
-    print(box)
-
     label = (detections.get("labels") or [garment_query])[0]
     return GarmentSchema(
         garment_type=label,
         category="apparel",
-        bounding_box=BoundingBox(*box.tolist()),
+        bounding_box=box,
         source_asset_ref=image_path,
         model_provider="microsoft",
         model_name=FLORENCE_MODEL,

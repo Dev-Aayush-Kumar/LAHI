@@ -4,20 +4,12 @@ import uuid
 import numpy as np
 from PIL import Image
 
-from services.mask_refinement import refine_mask
-from loaders.sam2_loader import sam
-
 
 OUTPUT_DIR = (
     Path(__file__).resolve().parents[1]
     / "public"
     / "uploads"
     / "generated_masks"
-)
-
-OUTPUT_DIR.mkdir(
-    parents=True,
-    exist_ok=True,
 )
 
 
@@ -28,13 +20,12 @@ def segment_person(
     """
     Generates a binary mask using SAM2.
     """
+    from loaders.sam2_loader import sam
+    from services.mask_refinement import refine_mask
 
     if sam.predictor is None:
         sam.load()
 
-    # -----------------------------
-    # Load Image
-    # -----------------------------
     image = np.array(
         Image.open(image_path).convert("RGB")
     )
@@ -47,9 +38,6 @@ def segment_person(
 
     sam.predictor.set_image(image)
 
-    # -----------------------------
-    # Florence BBox
-    # -----------------------------
     box = np.asarray(
         bbox,
         dtype=np.float32,
@@ -60,9 +48,6 @@ def segment_person(
     print("BBox dtype :", box.dtype)
     print("==============================\n")
 
-    # -----------------------------
-    # Predict
-    # -----------------------------
     masks, scores, logits = sam.predictor.predict(
         point_coords=None,
         point_labels=None,
@@ -78,9 +63,6 @@ def segment_person(
             "SAM2 failed to generate any mask."
         )
 
-    # -----------------------------
-    # Binary mask
-    # -----------------------------
     mask = (
         masks[0].astype(np.uint8)
         * 255
@@ -89,20 +71,13 @@ def segment_person(
     print("Mask shape :", mask.shape)
     print("Mask unique :", np.unique(mask))
 
-    # -----------------------------
-    # Refine
-    # -----------------------------
     refined = refine_mask(mask)
 
     print("Refined unique :", np.unique(refined))
 
-    # -----------------------------
-    # Save
-    # -----------------------------
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4()}.png"
-
     output_path = OUTPUT_DIR / filename
-
     Image.fromarray(refined).save(output_path)
 
     print(f"\nMask saved: {output_path}\n")

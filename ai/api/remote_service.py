@@ -18,7 +18,7 @@ from api.remote_contracts import (
 )
 from api.upload_utils import save_asset_upload
 from models.model_manager import models
-from pipelines.orchestrator import run_garment_job, run_tryon_job
+from pipelines.orchestrator import run_garment_job, run_preprocessing_job, run_tryon_job
 from runtime.config import execution_mode, is_mock_mode
 from runtime.jobs import create_job, get_job, update_job
 from runtime.logging import log_event
@@ -169,8 +169,16 @@ def create_remote_job(request: JobCreateRequest):
             worker()
         return get_job(job.request_id) or job
 
-    if request.asynchronous:
-        return job
+    if request.operation == "human_preprocessing":
+        def worker():
+            run_preprocessing_job(job.request_id, asset_ids[0])
+
+        if request.asynchronous:
+            queue.enqueue(job.request_id, worker)
+        else:
+            worker()
+        return get_job(job.request_id) or job
+
     raise HTTPException(
         status_code=501,
         detail="This operation is not implemented in the current development server.",

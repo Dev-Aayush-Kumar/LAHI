@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app import app
+from runtime.jobs import reset_jobs_for_tests
 from runtime.queue import reset_queue_for_tests
 
 
@@ -20,6 +21,7 @@ def test_full_mock_tryon_pipeline(monkeypatch, tmp_path):
     monkeypatch.setenv("AI_QUEUE_BACKEND", "inline")
     monkeypatch.setenv("AI_STORAGE_ROOT", str(tmp_path))
     reset_queue_for_tests()
+    reset_jobs_for_tests()
     client = TestClient(app)
     headers = {"Authorization": "Bearer test-token"}
 
@@ -55,8 +57,10 @@ def test_full_mock_tryon_pipeline(monkeypatch, tmp_path):
     assert job["status"] == "completed"
     assert job["progress"] == 100
     assert job["result"]["synthetic"] is True
+    assert job["result"]["output_asset_id"]
     assert "NOT A REAL" not in job["result"]["generated_image_url"]
     assert job["result"]["generated_image_url"].startswith("/v1/assets/")
+    assert job["result"]["generated_image_url"].endswith("/content")
     assert job["result"]["garment"]["processing_status"] == "completed"
     assert job["result"]["mask"]["synthetic"] is True
     assert job["result"]["pose"]["availability"] == "AVAILABLE_MOCK"

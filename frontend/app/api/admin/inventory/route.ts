@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/lib/http";
 import { AppError, ErrorCodes } from "@/lib/errors";
+import { setOnHandQuantity } from "@/lib/commerce/inventory";
 
 export async function GET() {
   try {
@@ -33,10 +34,11 @@ export async function POST(request: NextRequest) {
         400
       );
     }
-    const inventory = await prisma.inventory.update({
-      where: { variantId: body.variantId },
-      data: { quantity: body.quantity },
-    });
+    const inventory = await setOnHandQuantity(
+      prisma,
+      body.variantId,
+      body.quantity
+    );
     return jsonOk({ inventory });
   } catch (error) {
     return jsonError(error);

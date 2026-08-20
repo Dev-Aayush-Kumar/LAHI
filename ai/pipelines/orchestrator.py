@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from api.remote_contracts import DiagnosticModel, ErrorInfo
-from providers.registry import get_providers
-from runtime.jobs import update_job
+from providers.registry import get_providers, person_segmentation_input
+from runtime.jobs import JobCancelled, checkpoint_job, update_job
 from runtime.logging import log_event
 from runtime.storage import assets
 
@@ -22,20 +22,24 @@ def _quality_check(result: dict[str, Any]) -> dict[str, Any]:
 def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> None:
     providers = get_providers()
     try:
-        update_job(request_id, status="processing", progress=10)
+        checkpoint_job(request_id, status="processing", progress=10)
         person_path = assets.path_for_provider(person_asset)
         garment_path = assets.path_for_provider(garment_asset)
 
-        update_job(request_id, progress=25)
+        checkpoint_job(request_id, progress=25)
         garment = providers["garment"].analyze(garment_path, garment_asset)
 
-        update_job(request_id, progress=45)
-        mask = providers["segmentation"].segment(person_path, garment, person_asset)
+        checkpoint_job(request_id, progress=45)
+        mask = providers["segmentation"].segment(
+            person_path,
+            person_segmentation_input(garment),
+            person_asset,
+        )
 
-        update_job(request_id, progress=60)
+        checkpoint_job(request_id, progress=60)
         pose = providers["pose"].detect(person_path, person_asset)
 
-        update_job(request_id, progress=80)
+        checkpoint_job(request_id, progress=80)
         generated = providers["tryon"].generate(
             person_path,
             garment_path,
@@ -58,7 +62,7 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
             if item
         ]
 
-        update_job(
+        checkpoint_job(
             request_id,
             status="completed",
             progress=100,
@@ -70,6 +74,8 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
             ),
         )
         log_event("info", "tryon_completed", request_id=request_id)
+    except JobCancelled:
+        log_event("info", "tryon_cancelled", request_id=request_id)
     except Exception:
         log_event("error", "tryon_failed", request_id=request_id)
         update_job(
@@ -83,10 +89,10 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
 def run_garment_job(request_id: str, asset_id: str) -> None:
     providers = get_providers()
     try:
-        update_job(request_id, status="processing", progress=20)
+        checkpoint_job(request_id, status="processing", progress=20)
         path = assets.path_for_provider(asset_id)
         schema = providers["garment"].analyze(path, asset_id)
-        update_job(
+        checkpoint_job(
             request_id,
             status="completed",
             progress=100,
@@ -100,9 +106,50 @@ def run_garment_job(request_id: str, asset_id: str) -> None:
                 version=schema.model_version,
             ),
         )
+    except JobCancelled:
+        log_event("info", "garment_cancelled", request_id=request_id)
     except Exception:
         update_job(
             request_id,
             status="failed",
             error=ErrorInfo(code="inference_failed", message="Garment analysis failed."),
+        )
+
+
+def run_preprocessing_job(request_id: str, asset_id: str) -> None:
+    providers = get_providers()
+    try:
+        checkpoint_job(request_id, status="processing", progress=25)
+        path = assets.path_for_provider(asset_id)
+        pose = providers["pose"].detect(path, asset_id)
+        checkpoint_job(request_id, progress=70)
+        synthetic = bool(
+            pose.get("availability") == "AVAILABLE_MOCK"
+            or (isinstance(pose.get("landmarks"), dict) and pose["landmarks"].get("synthetic"))
+        )
+        checkpoint_job(
+            request_id,
+            status="completed",
+            progress=100,
+            result={
+                "pose": pose,
+                "synthetic": synthetic,
+            },
+            model=DiagnosticModel(
+                provider=pose.get("provider"),
+                model=pose.get("provider"),
+                version=pose.get("version"),
+            ),
+        )
+        log_event("info", "preprocessing_completed", request_id=request_id)
+    except JobCancelled:
+        log_event("info", "preprocessing_cancelled", request_id=request_id)
+    except Exception:
+        update_job(
+            request_id,
+            status="failed",
+            error=ErrorInfo(
+                code="preprocessing_failed",
+                message="Human preprocessing failed.",
+            ),
         )
