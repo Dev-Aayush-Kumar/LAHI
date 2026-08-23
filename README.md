@@ -1,46 +1,88 @@
 # LAHI
 
-LAHI is a consumer-facing fashion e-commerce platform. Virtual try-on is a differentiating technology layer, not the product itself.
+LAHI is a consumer fashion e-commerce platform. Virtual try-on is a
+differentiating backend capability, not the product itself.
 
 ```
 Customer browser
         ↓
-frontend/   Next.js commerce application and API boundary
+frontend/     Next.js commerce app + /api  (Prisma / PostgreSQL)
+        ↓  AI_SERVER_URL + server-only token
+ai/           FastAPI /v1 inference service
         ↓
-PostgreSQL  system of record (Prisma)
-        ↓
-ai/         FastAPI inference service (/v1 contract)
-        ↓
-GPU worker  Colab, VM, RunPod, AWS, GCP, Azure, or local mock
+GPU host      local mock, Colab T4, or any machine that serves /v1
 ```
 
-`backend/` is a future separation scaffold only. Do not use it as a second commerce backend.
+`backend/` is a future split scaffold only. Do not grow a second commerce API there.
 
-## Local development
+Colab is a temporary GPU host. It does not change the architecture.
+Details: [docs/architecture.md](docs/architecture.md).
 
-1. Create `frontend/.env` from `frontend/.env.example`.
-2. Create `ai/.env` from `ai/.env.example` (`AI_EXECUTION_MODE=mock`).
-3. Apply Prisma migrations from `frontend/` with `npx prisma migrate deploy`.
-4. `npm run db:generate && npm run seed`
-5. `npm run dev` for the storefront.
-6. From `ai/`, `uvicorn app:app --reload --port 8000`.
+## Local mock (no GPU)
 
-Mock mode runs upload → job → garment analysis → segmentation → try-on → result without a GPU.
+1. Copy `frontend/.env.example` → `frontend/.env`.
+2. Copy `ai/.env.example` → `ai/.env` with `AI_EXECUTION_MODE=mock`.
+3. From `frontend/`: apply Prisma migrations, `npm run db:generate`, `npm run seed`, `npm run dev`.
+4. From `ai/`: `pip install -r requirements.txt` then `python serve.py`.
+
+`ai/requirements.txt` does **not** install torch. That is intentional so a later
+Colab install cannot replace CUDA PyTorch with a CPU wheel.
+
+Mock mode runs upload → job → garment analysis → segmentation → try-on →
+synthetic result.
+
+## Remote GPU worker
+
+1. Follow [docs/COLAB.md](docs/COLAB.md) on a Tesla T4: keep runtime torch,
+   install `requirements.txt` + `requirements-gpu.txt`, install SAM2 with
+   `--no-deps`, place weights, run `python scripts/preflight.py`, start
+   `python serve.py`, open an HTTPS tunnel.
+2. Point `frontend/.env` at `AI_SERVER_URL=https://<TUNNEL_URL>` with the
+   **same** `AI_SERVER_TOKEN`. Restart Next.js.
+3. Browsers load results from `/api/vto/media/{jobId}` only.
 
 ## Tests
 
 ```bash
-# frontend (no GPU)
 cd frontend && npm test
-
-# AI contract + mock pipeline (no GPU)
+cd ai && python -m compileall -q app.py serve.py api runtime models loaders providers pipelines services preprocessing scripts tests
 cd ai && pytest
+cd ai && python scripts/preflight.py    # diagnostic; mock mode needs no GPU
 ```
 
-Real Florence / SAM2 / IDM-VTON inference is **not** claimed until the dedicated GPU session in `docs/COLAB.md`.
+AI pytest: **43 passed** on this branch (layers 2–4). Real GPU inference has
+**not** been run. See [docs/TESTING.md](docs/TESTING.md).
+
+## First real GPU E2E
+
+Not done yet. After the T4 worker is up:
+
+```bash
+cd ai
+python scripts/e2e_tryon.py --health-only --base-url https://<TUNNEL_URL> --token "<AI_SERVER_TOKEN>"
+python scripts/e2e_tryon.py --base-url https://<TUNNEL_URL> --token "<AI_SERVER_TOKEN>" --person <PERSON_IMAGE> --garment <GARMENT_IMAGE>
+```
+
+## Model weights (not in git)
+
+| Asset | Location |
+| --- | --- |
+| Florence-2 | Hugging Face cache (`microsoft/Florence-2-base`); first GPU job may download |
+| SAM2 | `ai/weights/sam2/checkpoints/sam2.1_hiera_tiny.pt` + yaml under `configs/` |
+| Pose | `ai/weights/pose_landmarker_lite.task` |
+| IDM-VTON | `ai/external/IDM-VTON/src` and `ckpt/` (or `AI_IDM_ROOT`) |
+
+## Secrets that must never be committed
+
+- `frontend/.env` — `DATABASE_URL`, `JWT_SECRET`, `AI_SERVER_TOKEN`, payment secrets
+- `ai/.env` — `AI_SERVER_TOKEN`
+- Hugging Face tokens, tunnel credentials, model zips
+
+`AI_SERVER_TOKEN` is server-only. Never `NEXT_PUBLIC_AI_SERVER_TOKEN`.
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
-- [Testing](docs/TESTING.md)
-- [Final GPU / Colab test](docs/COLAB.md)
+- [Testing layers](docs/TESTING.md)
+- [Colab T4 runbook](docs/COLAB.md)
+- Env templates: `frontend/.env.example`, `ai/.env.example`

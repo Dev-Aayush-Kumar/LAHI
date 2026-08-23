@@ -1,14 +1,26 @@
+# LAHI AI service — local development, mock mode, and pytest.
+#
+# This file does NOT install torch, torchvision, or torchaudio.
+# Installing torch from PyPI on Linux/Colab often replaces a CUDA build
+# with a CPU wheel and breaks GPU inference.
+#
+# Python: 3.10–3.12 recommended for GPU workers (Colab T4).
+# Local mock tests have also been run on 3.13.
+#
+# FastAPI /v1 service
 fastapi
 uvicorn
-opencv-python
-mediapipe
+python-multipart
+
+# Assets, masks, mock fixtures
+pillow
 numpy
 scipy>=1.14.1,<2
-pillow
-python-multipart
-transformers
-torch
-accelerate
-sentencepiece
+opencv-python
+
+# Pose landmarker (imported by the real pose adapter; unused in mock mode)
+mediapipe
+
+# Tests and the remote /v1 smoke harness
 pytest
 httpx

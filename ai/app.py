@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from runtime.config import ALLOWED_ORIGINS
+from runtime.config import ALLOWED_ORIGINS, cors_wildcard
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -30,8 +30,8 @@ if UPLOADS_DIR.exists():
 # Google Colab is one possible GPU worker, not a special runtime.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"] if cors_wildcard() else ALLOWED_ORIGINS,
+    allow_credentials=not cors_wildcard(),
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

@@ -15,15 +15,20 @@ Do **not** reapply it destructively to an existing database.
 
 ## Local Environment
 
-Create `frontend/.env` from `.env.example`:
+Create `frontend/.env` from `.env.example`. All listed variables are
+server-only. `AI_SERVER_TOKEN` must never be exposed as `NEXT_PUBLIC_*`.
 
 ```bash
 DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>
 JWT_SECRET=<secret>
+# Local mock AI, or https://<TUNNEL_URL> after the GPU worker is up.
 AI_SERVER_URL=http://127.0.0.1:8000
 AI_SERVER_TOKEN=<development-service-token>
 PAYMENT_PROVIDER=mock
 ```
+
+The browser loads try-on images from `/api/vto/media/{jobId}`, never from `/v1/assets/...`.
+See the repo README and `docs/COLAB.md` for the remote GPU worker.
 
 ## Safe Prisma Workflow
 

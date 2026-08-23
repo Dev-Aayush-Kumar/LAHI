@@ -66,13 +66,14 @@ def test_person_segmentation_input_strips_garment_geometry():
 
 
 def test_sam2_independent_person_box_uses_person_image_size(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_STORAGE_ROOT", str(tmp_path / "assets"))
     person_path = _png(tmp_path / "person.png", (80, 120), "blue")
     captured = {}
 
     def fake_segment(image_path, bbox):
         captured["image_path"] = image_path
         captured["bbox"] = list(bbox)
-        return str(tmp_path / "mask.png")
+        return _png(tmp_path / "mask.png", (80, 120), "white")
 
     monkeypatch.setattr("services.sam2_segmentation.segment_person", fake_segment)
     result = SAM2Adapter().segment(
@@ -89,9 +90,11 @@ def test_sam2_independent_person_box_uses_person_image_size(tmp_path, monkeypatc
     assert captured["bbox"] == [0.0, 0.0, 79.0, 119.0]
     assert result["source_asset_id"] == "asset_person"
     assert result["image_size"] == [80, 120]
+    assert result["mask_asset_id"]
 
 
 def test_sam2_accepts_bbox_for_matching_source_image(tmp_path, monkeypatch):
+    monkeypatch.setenv("AI_STORAGE_ROOT", str(tmp_path / "assets"))
     garment_path = _png(tmp_path / "garment.png", (64, 64), "red")
     captured = {}
     monkeypatch.setattr(
@@ -99,7 +102,7 @@ def test_sam2_accepts_bbox_for_matching_source_image(tmp_path, monkeypatch):
         lambda image_path, bbox: captured.update(
             image_path=image_path, bbox=list(bbox)
         )
-        or "mask.png",
+        or _png(tmp_path / "mask.png", (64, 64), "white"),
     )
     garment = GarmentSchema(
         bounding_box=BoundingBox(
@@ -113,5 +116,6 @@ def test_sam2_accepts_bbox_for_matching_source_image(tmp_path, monkeypatch):
         ),
         source_asset_ref="asset_garment",
     )
-    SAM2Adapter().segment(garment_path, garment, "asset_garment")
+    result = SAM2Adapter().segment(garment_path, garment, "asset_garment")
     assert captured["bbox"] == [8.0, 8.0, 56.0, 56.0]
+    assert result["mask_asset_id"]

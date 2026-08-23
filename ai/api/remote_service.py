@@ -17,9 +17,15 @@ from api.remote_contracts import (
     JobResponse,
 )
 from api.upload_utils import save_asset_upload
-from models.model_manager import models
+from models.model_manager import (
+    gpu_diagnostics,
+    idm_weights_present,
+    models,
+    pose_weights_present,
+    sam2_weights_present,
+)
 from pipelines.orchestrator import run_garment_job, run_preprocessing_job, run_tryon_job
-from runtime.config import execution_mode, is_mock_mode
+from runtime.config import HOST, PORT, execution_mode, is_mock_mode
 from runtime.jobs import create_job, get_job, update_job
 from runtime.logging import log_event
 from runtime.queue import get_queue
@@ -41,10 +47,17 @@ def require_service_token(
 
 @router.get("/health")
 def service_health():
+    gpu = gpu_diagnostics()
     return {
         "status": "healthy",
         "service": "LAHI AI service",
         "execution_mode": execution_mode(),
+        "bind": {"host": HOST, "port": PORT},
+        "device": gpu.get("device"),
+        "cuda_available": gpu.get("cuda_available", False),
+        "gpu_name": gpu.get("gpu_name"),
+        "vram_total_mb": gpu.get("vram_total_mb"),
+        "vram_allocated_mb": gpu.get("vram_allocated_mb"),
     }
 
 
@@ -55,7 +68,27 @@ def service_readiness():
     return {
         "status": "ready" if ready else "not_ready",
         "execution_mode": execution_mode(),
+        "resident": status.get("resident"),
+        "weights": status.get("weights"),
+        "gpu": status.get("gpu"),
         "checks": status,
+    }
+
+
+@router.get("/diagnostics", dependencies=[Depends(require_service_token)])
+def service_diagnostics():
+    status = models.info()
+    return {
+        "execution_mode": execution_mode(),
+        "mock": is_mock_mode(),
+        "gpu": gpu_diagnostics(),
+        "models": status,
+        "providers": {
+            "garment": "mock-garment" if is_mock_mode() else "florence",
+            "segmentation": "mock-sam" if is_mock_mode() else "sam2",
+            "pose": "mock-pose" if is_mock_mode() else "pose",
+            "tryon": "mock-tryon" if is_mock_mode() else "idm-vton",
+        },
     }
 
 
@@ -73,7 +106,7 @@ def capabilities():
             Capability(
                 name="garment_analysis",
                 available=True,
-                ready=mock or status["florence"]["loaded"],
+                ready=mock or True,
                 model=DiagnosticModel(
                     provider="mock-garment" if mock else "florence",
                     model=status["florence"]["model"],
@@ -85,13 +118,13 @@ def capabilities():
             Capability(
                 name="human_preprocessing",
                 available=True,
-                ready=mock or status["pose"]["weights"],
+                ready=mock or pose_weights_present(),
                 model=DiagnosticModel(provider="mock-pose" if mock else "pose"),
             ),
             Capability(
                 name="virtual_try_on",
                 available=True,
-                ready=mock or status["idm"]["loaded"],
+                ready=mock or (sam2_weights_present() and idm_weights_present()),
                 model=DiagnosticModel(provider="mock-tryon" if mock else "idm-vton"),
             ),
         ],

@@ -37,7 +37,27 @@ def auth(client, **kwargs):
 def test_health_is_available_without_auth(client):
     response = client.get("/v1/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "healthy"
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert body["execution_mode"] == "mock"
+    assert "cuda_available" in body
+    assert "device" in body
+
+
+def test_diagnostics_require_auth(client):
+    response = client.get("/v1/diagnostics")
+    assert response.status_code == 401
+
+
+def test_diagnostics_report_mock_providers(client):
+    response = client.get(
+        "/v1/diagnostics",
+        headers={"Authorization": "Bearer test-token"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mock"] is True
+    assert body["providers"]["tryon"] == "mock-tryon"
 
 
 def test_capabilities_require_auth(client):

@@ -1,16 +1,22 @@
 import sys
 import time
 import importlib.util
-import torch
-from pathlib import Path
-from PIL import Image
-import uuid
 
-from models.model_manager import IDM_CKPT_DIR
-from models.model_manager import IDM_SRC_DIR
-from models.model_manager import models
+from PIL import Image
+
+from models.model_manager import (
+    IDM_CKPT_DIR,
+    IDM_SRC_DIR,
+    current_device,
+    idm_weights_present,
+    models,
+)
+from runtime.provider_errors import ProviderUnavailable
+
 
 IDM_ROOT_DIR = IDM_SRC_DIR.parent
+IDM_SIZE = (768, 1024)
+
 
 def _import_from_path(module_name, file_path):
 
@@ -19,6 +25,12 @@ def _import_from_path(module_name, file_path):
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _resize(image: Image.Image, size=IDM_SIZE) -> Image.Image:
+    if image.size == size:
+        return image
+    return image.resize(size, Image.Resampling.LANCZOS)
 
 
 class IDMLoader:
@@ -32,17 +44,15 @@ class IDMLoader:
         if self.pipe is not None:
             return self.pipe
 
-        required_sources = (
-            IDM_SRC_DIR / "unet_hacked_tryon.py",
-            IDM_SRC_DIR / "unet_hacked_garmnet.py",
-            IDM_SRC_DIR / "tryon_pipeline.py",
-        )
-        if not IDM_CKPT_DIR.exists() or not all(
-            source.exists() for source in required_sources
-        ):
-            print(f"IDM-VTON assets are incomplete at {IDM_ROOT_DIR}")
-            return None
+        if not idm_weights_present():
+            raise ProviderUnavailable(
+                "idm_weights_missing",
+                f"IDM-VTON checkpoints or sources are incomplete at {IDM_ROOT_DIR}.",
+            )
 
+        models.ensure_vram_for("idm")
+
+        import torch
         from diffusers import AutoencoderKL, DDPMScheduler
         from transformers import (
             AutoTokenizer,
@@ -59,11 +69,8 @@ class IDMLoader:
         if str(IDM_ROOT_DIR) not in sys.path:
             sys.path.insert(0, str(IDM_ROOT_DIR))
 
-        device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        device = current_device()
+        dtype = torch.float16 if device == "cuda" else torch.float32
 
         unet_hacked_tryon = _import_from_path(
             "unet_hacked_tryon",
@@ -127,12 +134,14 @@ class IDMLoader:
         print("8. Loading tokenizer")
         tokenizer = AutoTokenizer.from_pretrained(
             IDM_CKPT_DIR,
-            subfolder="tokenizer"
+            subfolder="tokenizer",
+            use_fast=False,
         )
         print("9. Loading tokenizer2")
         tokenizer_2 = AutoTokenizer.from_pretrained(
             IDM_CKPT_DIR,
-            subfolder="tokenizer_2"
+            subfolder="tokenizer_2",
+            use_fast=False,
         )
         print("10. Building pipeline")
         pipe = TryonPipeline(
@@ -152,7 +161,7 @@ class IDMLoader:
         print("12. Done")
         self.pipe = pipe
 
-        models.register_idm(self.pipe)
+        models.register_idm(self)
 
         elapsed = time.time() - start
 
@@ -161,54 +170,53 @@ class IDMLoader:
         )
 
         return self.pipe
+
+    def release(self):
+        self.pipe = None
+
     def run(
         self,
         person_image: str,
         garment_image: str,
         mask_path: str,
+        prompt: str = "a photo of a person wearing the garment",
     ):
+        import torch
 
         if self.pipe is None:
-            raise RuntimeError(
-                "IDM-VTON model not loaded."
+            raise ProviderUnavailable(
+                "idm_not_loaded",
+                "IDM-VTON model not loaded.",
             )
 
-        person = Image.open(person_image).convert("RGB")
-        garment = Image.open(garment_image).convert("RGB")
-        mask = Image.open(mask_path).convert("L")
+        person = _resize(Image.open(person_image).convert("RGB"))
+        garment = _resize(Image.open(garment_image).convert("RGB"))
+        mask = _resize(Image.open(mask_path).convert("L"))
+
+        kwargs = {
+            "image": person,
+            "cloth": garment,
+            "mask_image": mask,
+            "num_inference_steps": 30,
+            "guidance_scale": 2.0,
+            "height": IDM_SIZE[1],
+            "width": IDM_SIZE[0],
+            "prompt": prompt,
+        }
 
         with torch.inference_mode():
-            output = self.pipe(
-                image=person,
-                cloth=garment,
-                mask_image=mask,
-                num_inference_steps=30,
-                guidance_scale=2.0,
-            )
+            try:
+                output = self.pipe(**kwargs)
+            except TypeError:
+                output = self.pipe(
+                    image=person,
+                    cloth=garment,
+                    mask_image=mask,
+                    num_inference_steps=30,
+                    guidance_scale=2.0,
+                )
 
-        result = output.images[0]
+        return output.images[0]
 
-        output_dir = (
-            Path(__file__).resolve().parents[1] /
-            "public" /
-            "uploads" /
-            "generated"
-        )
-
-        output_dir.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        filename = f"{uuid.uuid4()}.png"
-
-        path = output_dir / filename
-
-        result.save(path)
-
-        return {
-            "image_path": str(path),
-            "image_url": f"/uploads/generated/{filename}"
-        }
 
 idm = IDMLoader()

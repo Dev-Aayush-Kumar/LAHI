@@ -63,11 +63,21 @@ class SAM2Adapter:
                 [0.0, 0.0, float(max(width - 1, 0)), float(max(height - 1, 0))],
                 dtype=np.float32,
             )
+        from pathlib import Path
+
+        from runtime.storage import assets
         from services.sam2_segmentation import segment_person
 
         mask_path = segment_person(image_path, bbox)
+        mask_id = assets.put(
+            Path(mask_path).read_bytes(),
+            content_type="image/png",
+            kind="mask",
+            metadata={"provider": self.name, "source_asset_id": asset_id},
+        )
         return {
             "mask_path_internal": mask_path,
+            "mask_asset_id": mask_id,
             "provider": self.name,
             "version": self.version,
             "source_asset_id": asset_id,
@@ -104,9 +114,63 @@ class IDMAdapter:
         mask,
         pose,
     ):
-        raise RuntimeError(
-            "Real IDM-VTON inference is deferred until the GPU integration test."
+        from io import BytesIO
+
+        from models.model_manager import current_device, idm_weights_present
+        from runtime.provider_errors import ProviderUnavailable
+        from runtime.storage import assets
+
+        if not idm_weights_present():
+            raise ProviderUnavailable(
+                "idm_weights_missing",
+                "IDM-VTON checkpoints are not available on this worker.",
+            )
+        if current_device() != "cuda":
+            raise ProviderUnavailable(
+                "cuda_required",
+                "GPU mode requires CUDA for IDM-VTON. Refusing CPU fallback.",
+            )
+
+        mask_path = None
+        if mask:
+            mask_path = mask.get("mask_path_internal")
+            if not mask_path and mask.get("mask_asset_id"):
+                mask_path = assets.path_for_provider(mask["mask_asset_id"])
+        if not mask_path:
+            raise ProviderUnavailable(
+                "segmentation_mask_missing",
+                "IDM-VTON requires a person-image mask from the segmentation stage.",
+            )
+
+        from models.idm_loader import idm
+
+        prompt = "a photo of a person"
+        if garment is not None and getattr(garment, "garment_type", None):
+            prompt = f"a photo of a person wearing a {garment.garment_type}"
+
+        idm.load()
+        result_image = idm.run(
+            person_image_path,
+            garment_image_path,
+            mask_path,
+            prompt=prompt,
         )
+        buffer = BytesIO()
+        result_image.save(buffer, format="PNG")
+        result_id = assets.put(
+            buffer.getvalue(),
+            content_type="image/png",
+            kind="tryon-result",
+            metadata={"synthetic": False, "provider": self.name},
+        )
+        return {
+            "output_asset_id": result_id,
+            "generated_image_url": f"/v1/assets/{result_id}/content",
+            "synthetic": False,
+            "quality": {"passed": True, "notes": ["idm_vton"]},
+            "provider": self.name,
+            "version": self.version,
+        }
 
 
 def person_segmentation_input(garment):

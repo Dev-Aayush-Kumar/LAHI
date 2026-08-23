@@ -1,18 +1,34 @@
+from __future__ import annotations
+
+import os
 from pathlib import Path
+from typing import Any
+
+from runtime.config import env, vram_budget_mb
+from runtime.vram import empty_cache, snapshot as vram_snapshot
 
 try:
     import torch
 except ImportError:  # The API contract must remain importable without torch.
     torch = None
 
-DEVICE = "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
-PRECISION = "fp16" if DEVICE == "cuda" else "fp32"
+
+def current_device() -> str:
+    return "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
+
+
+def current_precision() -> str:
+    return "fp16" if current_device() == "cuda" else "fp32"
+
+
+DEVICE = current_device()
+PRECISION = current_precision()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 WEIGHTS_DIR = BASE_DIR / "weights"
 
-FLORENCE_MODEL = "microsoft/Florence-2-base"
+FLORENCE_MODEL = env("AI_FLORENCE_MODEL") or "microsoft/Florence-2-base"
 
 SAM2_DIR = WEIGHTS_DIR / "sam2"
 
@@ -44,19 +60,74 @@ def sam2_config_path() -> Path:
         return flat
     return hydra
 
+
 # External AI repositories
-IDM_ROOT_DIR = BASE_DIR / "external" / "IDM-VTON"
+IDM_ROOT_DIR = Path(env("AI_IDM_ROOT") or str(BASE_DIR / "external" / "IDM-VTON"))
 IDM_CKPT_DIR = IDM_ROOT_DIR / "ckpt"
 IDM_SRC_DIR = IDM_ROOT_DIR / "src"
 
+IDM_SOURCE_FILES = (
+    IDM_SRC_DIR / "unet_hacked_tryon.py",
+    IDM_SRC_DIR / "unet_hacked_garmnet.py",
+    IDM_SRC_DIR / "tryon_pipeline.py",
+)
+IDM_CKPT_SUBFOLDERS = (
+    "scheduler",
+    "vae",
+    "unet",
+    "image_encoder",
+    "unet_encoder",
+    "text_encoder",
+    "text_encoder_2",
+    "tokenizer",
+    "tokenizer_2",
+)
+
 # Sequential T4 (~15GB) budget. These are planning numbers, not measurements.
-VRAM_BUDGET_MB = 15000
+VRAM_BUDGET_MB = vram_budget_mb()
 MODEL_VRAM_MB = {
     "florence": 6000,
     "sam2": 3500,
     "idm": 11000,
     "pose": 500,
 }
+
+
+def florence_cache_dir() -> Path:
+    hf_home = Path(os.getenv("HF_HOME") or (Path.home() / ".cache" / "huggingface"))
+    slug = FLORENCE_MODEL.replace("/", "--")
+    return hf_home / "hub" / f"models--{slug}"
+
+
+def florence_cached() -> bool:
+    return florence_cache_dir().exists()
+
+
+def sam2_weights_present() -> bool:
+    return sam2_checkpoint_path().exists() and sam2_config_path().exists()
+
+
+def pose_weights_present() -> bool:
+    return POSE_MODEL.exists()
+
+
+def idm_weights_present() -> bool:
+    if not IDM_CKPT_DIR.exists():
+        return False
+    if not all(path.exists() for path in IDM_SOURCE_FILES):
+        return False
+    return all((IDM_CKPT_DIR / folder).exists() for folder in IDM_CKPT_SUBFOLDERS)
+
+
+def gpu_diagnostics() -> dict[str, Any]:
+    info = vram_snapshot()
+    info["device"] = current_device()
+    info["precision"] = current_precision()
+    info["torch"] = getattr(torch, "__version__", None) if torch is not None else None
+    if torch is not None:
+        info["cuda_built"] = bool(getattr(torch.version, "cuda", None))
+        info["cuda_version"] = getattr(torch.version, "cuda", None)
+    return info
 
 
 class ModelManager:
@@ -85,6 +156,9 @@ class ModelManager:
             self._resident.append(name)
 
     def unload(self, name: str) -> None:
+        loader = getattr(self, name, None)
+        if loader is not None and hasattr(loader, "release"):
+            loader.release()
         if name == "florence":
             self.florence = None
         elif name == "sam2":
@@ -92,8 +166,7 @@ class ModelManager:
         elif name == "idm":
             self.idm = None
         self._resident = [item for item in self._resident if item != name]
-        if torch is not None and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        empty_cache()
 
     def ensure_vram_for(self, name: str) -> None:
         required = MODEL_VRAM_MB.get(name, 0)
@@ -105,60 +178,73 @@ class ModelManager:
             self.unload(oldest)
             used = sum(MODEL_VRAM_MB.get(item, 0) for item in self._resident)
 
+    def release_after_stage(self, name: str) -> None:
+        """Drop a finished stage so the next T4-resident model can load."""
+
+        if name in self._resident:
+            self.unload(name)
+
     def info(self):
+        device = current_device()
+        precision = current_precision()
+        weights = {
+            "florence_cached": florence_cached(),
+            "sam2": sam2_weights_present(),
+            "idm": idm_weights_present(),
+            "pose": pose_weights_present(),
+        }
         info = {
-            "device": DEVICE,
-            "precision": PRECISION,
+            "device": device,
+            "precision": precision,
             "vram_budget_mb": VRAM_BUDGET_MB,
             "resident": list(self._resident),
+            "gpu": gpu_diagnostics(),
+            "weights": weights,
             "florence": {
                 "name": "Florence-2",
                 "provider": "microsoft",
                 "model": FLORENCE_MODEL,
                 "version": "base",
                 "configured": True,
+                "cached": weights["florence_cached"],
                 "loaded": self.florence is not None,
                 "status": "loaded" if self.florence is not None else "unloaded",
-                "device": DEVICE,
-                "precision": PRECISION,
+                "device": device,
+                "precision": precision,
                 "capabilities": ["garment_understanding", "caption"],
                 "memory_mb": MODEL_VRAM_MB["florence"],
             },
             "sam2": {
                 "name": "SAM2",
                 "provider": "facebook",
-                "weights": SAM2_DIR.exists(),
+                "weights": weights["sam2"],
                 "loaded": self.sam2 is not None,
                 "status": "loaded" if self.sam2 is not None else "unloaded",
-                "device": DEVICE,
+                "device": device,
                 "capabilities": ["segmentation"],
                 "memory_mb": MODEL_VRAM_MB["sam2"],
             },
             "idm": {
                 "name": "IDM-VTON",
                 "provider": "idm-vton",
-                "checkpoint": IDM_CKPT_DIR.exists(),
+                "checkpoint": weights["idm"],
                 "loaded": self.idm is not None,
                 "status": "loaded" if self.idm is not None else "unloaded",
-                "device": DEVICE,
+                "device": device,
                 "capabilities": ["virtual_try_on"],
                 "memory_mb": MODEL_VRAM_MB["idm"],
             },
             "pose": {
                 "name": "Pose landmarker",
                 "provider": "mediapipe",
-                "weights": POSE_MODEL.exists(),
-                "status": "available" if POSE_MODEL.exists() else "missing_weights",
+                "weights": weights["pose"],
+                "status": "available" if weights["pose"] else "missing_weights",
                 "capabilities": ["pose"],
                 "memory_mb": MODEL_VRAM_MB["pose"],
             },
         }
-        info["ready"] = (
-            info["pose"]["weights"]
-            and info["florence"]["loaded"]
-            and info["sam2"]["loaded"]
-            and info["idm"]["loaded"]
-        )
+        # Ready means the worker can accept a job, not that every model is resident.
+        info["ready"] = weights["sam2"] and weights["idm"] and weights["pose"]
         return info
 
 

@@ -1,0 +1,41 @@
+# Tesla T4 / Colab extras for real Florence, SAM2, pose, and IDM-VTON.
+#
+# NEVER install torch, torchvision, or torchaudio from this file or from
+# official SAM2 / IDM-VTON requirement lists. Those lists will replace a
+# working CUDA-enabled Colab torch with a CPU (or mismatched) PyPI wheel.
+#
+# Expected to already be present on the GPU runtime (do not reinstall):
+#   torch          CUDA build already on the T4 runtime (SAM2 wants >= 2.5.1)
+#   torchvision    matching that same torch build (SAM2 wants >= 0.20.1)
+#   torchaudio     not imported by LAHI; leave whatever the runtime shipped
+#
+# Install sequence:
+#   1. python -c "import torch, torchvision; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0), torchvision.__version__)"
+#      Stop if cuda is False.
+#   2. pip install -r requirements.txt
+#   3. pip install -r requirements-gpu.txt
+#   4. Install SAM2 from GitHub with --no-deps (see docs/COLAB.md).
+#   5. Do not install flash-attn. Florence uses attn_implementation="eager".
+#   6. Do not `pip install -r` the upstream IDM-VTON requirements.txt.
+#
+# Florence-2 (lazy-loaded; first job may download microsoft/Florence-2-base).
+# The HF modeling file imports einops and timm.
+transformers
+accelerate
+sentencepiece
+safetensors
+einops
+timm
+
+# IDM-VTON loader (models/idm_loader.py) plus official tryon_pipeline imports.
+# Keep diffusers below 0.32: the vendor pipeline is a forked older SDXL inpaint.
+diffusers>=0.25.0,<0.32
+huggingface_hub>=0.20,<1
+
+# SAM2 non-torch runtime deps. The `sam2` package itself is installed from
+# https://github.com/facebookresearch/sam2 with:
+#   SAM2_BUILD_CUDA=0 pip install --no-deps -e /path/to/sam2
+# --no-deps is required so pip cannot pull a CPU torch to satisfy torch>=2.5.1.
+hydra-core>=1.3.2
+iopath>=0.1.10
+tqdm

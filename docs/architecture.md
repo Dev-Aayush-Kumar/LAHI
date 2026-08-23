@@ -1,94 +1,184 @@
 # LAHI architecture
 
-LAHI is a complete consumer fashion e-commerce site. The AI virtual try-on system is a backend technology layer that lets a shopper see themselves in a selected garment before purchase.
+LAHI is a consumer fashion e-commerce site. Virtual try-on is a backend
+technology layer: a shopper can see themselves in a selected garment before
+purchase. Google Colab is only one possible GPU host. It is not a separate
+application architecture.
 
-```mermaid
-flowchart TD
-  shopper[Shopper] --> web[Next.js frontend]
-  web --> api[Commerce API routes]
-  api --> pg[(PostgreSQL)]
-  api --> pay[Payment provider abstraction]
-  api --> store[Storage abstraction]
-  api --> ai["AI service /v1"]
-  ai --> queue[Queue abstraction]
-  queue --> providers[Provider adapters]
-  providers --> mock[Mock providers]
-  providers --> real[Florence / SAM2 / Pose / IDM]
 ```
+                     ┌─────────────────────────────────────┐
+ Shopper browser     │  frontend/  Next.js storefront      │
+                     │  UI routes, no AI token in JS       │
+                     └──────────────┬──────────────────────┘
+                                    │ same-origin HTTP
+                     ┌──────────────▼──────────────────────┐
+                     │  Next.js API / application          │
+                     │  /api/*  commerce + VTO orchestration│
+                     │  /api/vto/media/[jobId]  media proxy │
+                     │  server-only AI_SERVER_TOKEN         │
+                     └───┬─────────────┬─────────────┬─────┘
+                         │             │             │
+              ┌──────────▼───┐  ┌──────▼──────┐  ┌───▼────────────┐
+              │ PostgreSQL   │  │ payments    │  │ local/object   │
+              │ Prisma       │  │ (mock now)  │  │ storage        │
+              └──────────────┘  └─────────────┘  └────────────────┘
+                         │
+                         │ AI_SERVER_URL + bearer token
+                         │ (localhost or https://<TUNNEL_URL>)
+                     ┌───▼─────────────────────────────────┐
+                     │  ai/  FastAPI /v1                   │
+                     │  health (public)                    │
+                     │  readiness / capabilities / jobs    │
+                     │  assets  (token required)           │
+                     └───┬─────────────────────────────────┘
+                         │ queue: inline | thread
+                     ┌───▼─────────────────────────────────┐
+                     │  orchestrator + provider adapters   │
+                     │  mock  or  Florence → SAM2 → pose   │
+                     │                    → IDM-VTON       │
+                     │  sequential load / unload on T4     │
+                     └─────────────────────────────────────┘
+```
+
+Colab, a VM, RunPod, or a laptop mock worker are interchangeable hosts of this
+same `/v1` service. Commerce never imports Florence, SAM2, IDM-VTON, local
+weight paths, or Colab notebook URLs.
 
 ## Authoritative systems
 
 | Concern | Location |
 | --- | --- |
-| Customer UI and commerce/API | `frontend/` |
+| Customer UI and commerce API | `frontend/` |
 | Database | PostgreSQL + `frontend/prisma` |
-| AI jobs and inference | `ai/` over stable `/v1` HTTP |
+| AI jobs and inference | `ai/` over `/v1` HTTP |
 | Future service split | `backend/` scaffold only |
 
-The commerce application must not import Florence, SAM2, IDM-VTON, GPU details, local model paths, or Colab notebook URLs.
+## Frontend and Next.js API
 
-## Commerce MVP
+`frontend/` is both the storefront and the application boundary.
 
-Implemented workflows:
+- Prisma is the system of record for users, catalog, cart, orders, and `TryOnJob`.
+- Server routes call the AI worker with `AI_SERVER_URL` and `AI_SERVER_TOKEN`.
+- Those two variables are server-only. There is no `NEXT_PUBLIC_AI_*`.
+- The browser never receives the AI bearer token.
+- Try-on pixels are served through `/api/vto/media/[jobId]`, which fetches
+  `/v1/assets/{id}/content` on the server.
 
-- Users, sessions, profiles, addresses, roles
-- Catalog: categories, brands, products, images, variants, sizes, colors, pricing
-- Cart, wishlist, inventory reservation
-- Checkout → pending order → payment intent → webhook → confirmed order
-- Mock payments: success, failure, cancel, duplicate webhook, delayed webhook
-- Cancellation, returns, refund records
-- Reviews/ratings, coupons, shipping/tax, in-app notifications
-- Admin area with server-side `ADMIN` checks
+## Prisma / database
 
-Order and payment writes that change money or stock run in database transactions.
+Commerce MVP includes users and sessions, catalog, cart, wishlist, inventory
+reservation, checkout, mock payments, returns, reviews, coupons, shipping/tax,
+notifications, and an admin area with server-side `ADMIN` checks.
 
-Inventory model:
+Inventory:
 
-- `quantity` = on-hand units
+- `quantity` = on-hand
 - `reserved` = held for unpaid/open orders
 - available = quantity − reserved
 - payment success decrements both reserved and on-hand
-- cancel before payment releases reservation
-- cancel/refund after payment restores on-hand
 
-## Payments
+## AI service and `/v1`
 
-`frontend/lib/payments` is provider-agnostic. Development uses `PAYMENT_PROVIDER=mock`. Razorpay/Stripe are named extension points and are not wired. Browser redirect is not treated as payment proof; `/api/payments/webhook` is.
+`python serve.py` binds `AI_HOST`/`AI_PORT` (default `0.0.0.0:8000`).
 
-## Storage
+| Endpoint | Auth | Role |
+| --- | --- | --- |
+| `GET /v1/health` | public | Process up; reports device/CUDA/VRAM |
+| `GET /v1/readiness` | token | Weights present, not models already loaded |
+| `GET /v1/capabilities` | token | garment / pose / try-on availability |
+| `GET /v1/diagnostics` | token | Full model-manager dump |
+| `POST /v1/assets` | token | Upload person, garment, or video bytes |
+| `GET /v1/assets/{id}/content` | token | Raw bytes (server proxy only) |
+| `POST /v1/jobs` | token | `virtual_try_on`, `garment_analysis`, `human_preprocessing` |
+| `GET /v1/jobs/{id}` | token | Status, progress, result, error |
+| `POST /v1/jobs/{id}/cancel` | token | Terminal states stay locked |
 
-`frontend/lib/storage` and `ai/runtime/storage.py` store bytes behind logical keys / asset IDs. Local disk is the development driver. S3, R2, and MinIO are reserved driver names and are not configured.
+## Remote `AI_SERVER_URL` and token authentication
 
-## AI job lifecycle
+Any host that serves this contract is valid. After a Colab tunnel exists,
+`frontend/.env` becomes:
 
 ```
-Create job → queued → processing → completed | failed | cancelled
+AI_SERVER_URL=https://<TUNNEL_URL>
+AI_SERVER_TOKEN=<same secret as the worker>
 ```
 
-Jobs record request id, operation, assets, provider/version, status, progress, timestamps, errors, and duration. Commerce stores a parallel `TryOnJob` row for the customer.
+Comparison is constant-time (`hmac.compare_digest`). An empty worker token
+rejects all authenticated routes.
 
-Execution mode:
+## Queue and job model
 
-- `AI_EXECUTION_MODE=mock` (default for local tests)
-- `AI_EXECUTION_MODE=gpu` selects real adapters when weights exist
+```
+create job → queued → processing → completed | failed | cancelled
+```
 
-Queue:
-
-- `AI_QUEUE_BACKEND=inline` for deterministic local tests
-- `AI_QUEUE_BACKEND=thread` for a local server
+- `AI_QUEUE_BACKEND=inline` — pytest
+- `AI_QUEUE_BACKEND=thread` — local or remote server
 - Redis can replace the queue later without changing job handlers
 
-Google Colab is one GPU worker. The AI service only needs `AI_SERVER_TOKEN`, allowed origins, storage, and execution mode.
+Jobs record request id, operation, assets, provider, status, progress,
+timestamps, errors, and duration. Commerce stores a parallel `TryOnJob`.
+Cancel cannot move a completed or failed job.
 
-## Human representation
+## Asset lifecycle and media proxy
 
-Available today: front/left/right/back canonical images, source video, optional pose JSON and segmentation when a provider returns them.
+1. Next.js or the E2E harness uploads bytes to `POST /v1/assets`.
+2. The worker stores them under `AI_STORAGE_ROOT` (default `ai/var/assets`).
+3. The job writes mask and output assets the same way.
+4. Result URLs look like `/v1/assets/{id}/content`.
+5. The browser is given `/api/vto/media/{jobId}` only.
 
-Planned / unavailable: DensePose, 3D mesh reconstruction, body measurements, identity embeddings. Those columns exist so later work does not require another conceptual model.
+## Provider / adapter architecture
 
-## Model manager
+`providers/registry.py` selects adapters from `AI_EXECUTION_MODE`:
 
-Heavy models are lazy. The manager reports name, provider, version, status, device, precision, capabilities, and a planning VRAM budget for sequential execution on a ~15 GB Tesla T4. Florence + SAM2 + IDM-VTON are not assumed to stay resident together.
+| Mode | Garment | Segmentation | Pose | Try-on |
+| --- | --- | --- | --- | --- |
+| `mock` (default) | mock-garment | mock-sam | mock-pose | mock-tryon (`synthetic=true`) |
+| `gpu` | Florence-2 | SAM2 | MediaPipe landmarker | IDM-VTON (`synthetic=false`) |
+
+GPU mode never substitutes mock output. A synthetic try-on result fails the
+job with `unexpected_synthetic`.
+
+## Orchestration and sequential GPU lifecycle
+
+`pipelines/orchestrator.py` for `virtual_try_on`:
+
+1. Florence garment understanding → unload Florence
+2. SAM2 person segmentation (never applies a garment bbox to the person image) → unload SAM2
+3. Pose landmarker
+4. IDM-VTON generate → unload IDM
+5. Persist output asset; `empty_cache` between stages
+
+Planning VRAM on a ~15 GB Tesla T4 is in `models/model_manager.py`. Florence +
+SAM2 + IDM-VTON are not assumed to stay resident together.
+
+## Models
+
+| Model | How it is obtained | Runtime notes |
+| --- | --- | --- |
+| Florence-2 | Hugging Face `microsoft/Florence-2-base` | Lazy; first job may download; `attn_implementation="eager"` |
+| SAM2 2.1 tiny | Local `ai/weights/sam2/` + `import sam2` | Git install with `--no-deps` on Colab |
+| Pose | `ai/weights/pose_landmarker_lite.task` | MediaPipe Tasks |
+| IDM-VTON | `ai/external/IDM-VTON/src` + `ckpt/` | Canonical loader: `models/idm_loader.py` |
+
+`ai/services/idm_loader.py` is a legacy import path and is not the runtime entry.
+
+## Failure and partial-result semantics
+
+- Florence caption can succeed while detection finds no box → garment
+  `processing_status=partial`. SAM2 then segments from a full-image box on the
+  **person** image, not from garment geometry.
+- A bounding box tagged for a different image raises `CrossImageBoundingBoxError`.
+- Missing GPU weights → `ProviderUnavailable` (`idm_weights_missing`, `cuda_required`, …) and job `failed`.
+- Uncaught exceptions → job `failed` with a short message.
+- Mock jobs complete with `synthetic=true` and are labeled mock fixtures.
+
+## Commerce MVP (non-AI)
+
+Payments (`frontend/lib/payments`) are provider-agnostic. Development uses
+`PAYMENT_PROVIDER=mock`. Storage (`frontend/lib/storage`) defaults to local
+disk. S3/R2/MinIO and Razorpay/Stripe are named extension points.
 
 ## Production migration path
 

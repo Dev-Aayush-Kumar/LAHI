@@ -1,3 +1,5 @@
+"""Legacy IDM import path. Runtime inference uses models.idm_loader."""
+
 import sys
 import time
 
