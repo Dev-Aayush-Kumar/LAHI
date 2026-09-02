@@ -20,6 +20,7 @@ class RealTryOnProvider:
             "output_asset_id": "asset_real_result",
             "generated_image_url": "/v1/assets/asset_real_result/content",
             "synthetic": False,
+            "execution": "real",
             "provider": self.name,
             "version": self.version,
             "quality": {"passed": True, "notes": []},
@@ -55,6 +56,7 @@ def test_process_tryon_marks_real_provider_output_not_synthetic(monkeypatch, tmp
             "garment": MockGarmentProvider(),
             "segmentation": MockSegmentationProvider(),
             "pose": MockPoseProvider(),
+            "densepose": MockPoseProvider(),
             "tryon": RealTryOnProvider(),
         },
     )

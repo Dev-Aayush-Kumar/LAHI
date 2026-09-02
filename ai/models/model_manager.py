@@ -88,9 +88,18 @@ VRAM_BUDGET_MB = vram_budget_mb()
 MODEL_VRAM_MB = {
     "florence": 6000,
     "sam2": 3500,
+    "openpose": 2500,
+    "densepose": 3500,
     "idm": 11000,
     "pose": 500,
 }
+
+# Optional IDM conditioning assets (DensePose / OpenPose / parsing).
+DENSEPOSE_CKPT = IDM_CKPT_DIR / "densepose" / "model_final_162be9.pkl"
+DENSEPOSE_CONFIG = IDM_ROOT_DIR / "configs" / "densepose_rcnn_R_50_FPN_s1x.yaml"
+OPENPOSE_BODY = IDM_CKPT_DIR / "openpose" / "ckpts" / "body_pose_model.pth"
+PARSING_ATR = IDM_CKPT_DIR / "humanparsing" / "parsing_atr.onnx"
+PARSING_LIP = IDM_CKPT_DIR / "humanparsing" / "parsing_lip.onnx"
 
 
 def florence_cache_dir() -> Path:
@@ -119,6 +128,28 @@ def idm_weights_present() -> bool:
     return all((IDM_CKPT_DIR / folder).exists() for folder in IDM_CKPT_SUBFOLDERS)
 
 
+def densepose_weights_present() -> bool:
+    return DENSEPOSE_CKPT.exists() and DENSEPOSE_CONFIG.exists()
+
+
+def openpose_weights_present() -> bool:
+    return OPENPOSE_BODY.exists()
+
+
+def parsing_weights_present() -> bool:
+    return PARSING_ATR.exists() and PARSING_LIP.exists()
+
+
+def agnostic_mask_assets_present() -> bool:
+    return openpose_weights_present() and parsing_weights_present()
+
+
+def idm_conditioning_ready() -> bool:
+    """DensePose is mandatory for real IDM-VTON; agnostic mask assets preferred."""
+
+    return idm_weights_present() and densepose_weights_present()
+
+
 def gpu_diagnostics() -> dict[str, Any]:
     info = vram_snapshot()
     info["device"] = current_device()
@@ -127,6 +158,16 @@ def gpu_diagnostics() -> dict[str, Any]:
     if torch is not None:
         info["cuda_built"] = bool(getattr(torch.version, "cuda", None))
         info["cuda_version"] = getattr(torch.version, "cuda", None)
+        if torch.cuda.is_available():
+            try:
+                info["vram_peak_allocated_mb"] = int(
+                    torch.cuda.max_memory_allocated() / (1024 * 1024)
+                )
+                info["vram_peak_reserved_mb"] = int(
+                    torch.cuda.max_memory_reserved() / (1024 * 1024)
+                )
+            except Exception:
+                pass
     return info
 
 
@@ -136,6 +177,8 @@ class ModelManager:
     def __init__(self):
         self.florence = None
         self.sam2 = None
+        self.openpose = None
+        self.densepose = None
         self.idm = None
         self._resident: list[str] = []
 
@@ -146,6 +189,14 @@ class ModelManager:
     def register_sam(self, loader):
         self.sam2 = loader
         self._remember("sam2")
+
+    def register_openpose(self, loader):
+        self.openpose = loader
+        self._remember("openpose")
+
+    def register_densepose(self, loader):
+        self.densepose = loader
+        self._remember("densepose")
 
     def register_idm(self, loader):
         self.idm = loader
@@ -163,6 +214,10 @@ class ModelManager:
             self.florence = None
         elif name == "sam2":
             self.sam2 = None
+        elif name == "openpose":
+            self.openpose = None
+        elif name == "densepose":
+            self.densepose = None
         elif name == "idm":
             self.idm = None
         self._resident = [item for item in self._resident if item != name]
@@ -191,7 +246,12 @@ class ModelManager:
             "florence_cached": florence_cached(),
             "sam2": sam2_weights_present(),
             "idm": idm_weights_present(),
+            "densepose": densepose_weights_present(),
+            "openpose": openpose_weights_present(),
+            "parsing": parsing_weights_present(),
+            "agnostic_mask": agnostic_mask_assets_present(),
             "pose": pose_weights_present(),
+            "idm_conditioning": idm_conditioning_ready(),
         }
         info = {
             "device": device,
@@ -224,10 +284,21 @@ class ModelManager:
                 "capabilities": ["segmentation"],
                 "memory_mb": MODEL_VRAM_MB["sam2"],
             },
+            "densepose": {
+                "name": "DensePose",
+                "provider": "detectron2",
+                "weights": weights["densepose"],
+                "loaded": self.densepose is not None,
+                "status": "loaded" if self.densepose is not None else "unloaded",
+                "device": device,
+                "capabilities": ["idm_pose_conditioning"],
+                "memory_mb": MODEL_VRAM_MB["densepose"],
+            },
             "idm": {
                 "name": "IDM-VTON",
                 "provider": "idm-vton",
                 "checkpoint": weights["idm"],
+                "conditioning": weights["idm_conditioning"],
                 "loaded": self.idm is not None,
                 "status": "loaded" if self.idm is not None else "unloaded",
                 "device": device,
@@ -243,8 +314,15 @@ class ModelManager:
                 "memory_mb": MODEL_VRAM_MB["pose"],
             },
         }
-        # Ready means the worker can accept a job, not that every model is resident.
-        info["ready"] = weights["sam2"] and weights["idm"] and weights["pose"]
+        # Ready = diffusion ckpts + DensePose + (agnostic mask assets OR SAM2 fallback)
+        # + MediaPipe for human_preprocessing jobs.
+        mask_ok = weights["agnostic_mask"] or weights["sam2"]
+        info["ready"] = bool(
+            weights["idm"]
+            and weights["densepose"]
+            and mask_ok
+            and weights["pose"]
+        )
         return info
 
 

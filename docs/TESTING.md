@@ -2,23 +2,32 @@
 
 Do not use Google Colab for layers 1–4. Colab is layer 6 only.
 
-Real Florence / SAM2 / pose / IDM-VTON inference has **not** been run.
-Passing layers 1–4 does not mean the worker is GPU-validated.
+Real Florence / SAM2 / DensePose / IDM-VTON inference has **not** been run on a
+Tesla T4 in this phase. Passing layers 1–4 does not mean the worker is
+GPU-validated.
+
+## Classification
+
+| Label | Meaning |
+| --- | --- |
+| **LOCAL VERIFIED** | compileall / pytest / mock preflight on this machine |
+| **GPU READY** | Real path implemented and wired; requires T4 + weights |
+| **GPU VERIFIED** | Actually ran on GPU (not claimed until Layer 6 succeeds) |
 
 ## Already passed (this branch, local)
 
 | Check | Result |
 | --- | --- |
-| Layer 1 `compileall` | PASS |
-| Layer 2–4 AI pytest | **43 passed** |
-| Layer 5 preflight on a real T4 | not run |
-| Layer 6 real GPU E2E | **not run** |
+| Layer 1 `compileall` | LOCAL VERIFIED |
+| Layer 2–4 AI pytest | LOCAL VERIFIED |
+| Layer 5 preflight on a real T4 | GPU READY (not yet run) |
+| Layer 6 real GPU E2E | not GPU VERIFIED |
 
 ## Not yet validated
 
 - Real Florence-2 inference
-- Real SAM2 inference
-- Real MediaPipe pose inference
+- Real OpenPose/parsing or SAM2 mask inference
+- Real DensePose inference
 - Real IDM-VTON inference
 - Complete real person+garment E2E on Tesla T4
 - Live Razorpay/Stripe, production object storage, production deploy
@@ -54,8 +63,9 @@ pytest tests/test_api_contract.py tests/test_gpu_readiness.py -q
 ```
 
 `test_api_contract.py` exercises authenticated `/v1` using `AI_EXECUTION_MODE=mock`.
-`test_gpu_readiness.py` checks adapter selection, IDM failure/persist behavior,
-and that `scripts.preflight.collect()` returns diagnostics without loading models.
+`test_gpu_readiness.py` checks adapter selection, DensePose/mask requirements,
+IDM failure/persist behavior, OOM mapping, and that `scripts.preflight.collect()`
+returns diagnostics without loading models.
 
 ## Layer 4 — mock pipeline
 
@@ -65,7 +75,7 @@ pytest tests/test_mock_pipeline.py -q
 ```
 
 Upload person + garment → create try-on job → queue → garment analysis →
-segmentation → try-on → synthetic result → `completed`.
+segmentation → densepose stage → try-on → synthetic result → `completed`.
 
 Synthetic images are mock fixtures, not customer try-on photos.
 
@@ -86,17 +96,31 @@ python scripts/preflight.py
 python scripts/preflight.py --json
 ```
 
-| Status | Meaning |
+| Status / verdict | Meaning |
 | --- | --- |
-| `READY` | GPU mode, CUDA, imports, SAM2/IDM/pose files, writable storage |
-| `WARNING` | Can start; e.g. mock mode, or Florence not yet in HF cache |
-| `NOT_READY` | Do not run layer 6 |
+| `READY` / `READY FOR REAL VTO` | GPU mode, CUDA, imports, IDM+DensePose (+ mask path), pose, writable storage |
+| `WARNING` | Can start; e.g. mock mode, Florence not yet in HF cache, SAM2 mask fallback |
+| `NOT_READY` / `NOT READY` | Do not run layer 6 |
 
 On a laptop without CUDA, leave `AI_EXECUTION_MODE=mock` (default). That is a
 **diagnostic** run, not GPU validation. A WARNING about mock mode is expected.
 
-On the T4 worker, set `AI_EXECUTION_MODE=gpu` first. Florence-not-cached is a
-warning. Missing checkpoints or no CUDA is `NOT_READY`.
+On the T4 worker, set `AI_EXECUTION_MODE=gpu` first. Install detectron2 via
+`python scripts/detectron2_bootstrap.py --install` before expecting DensePose to
+work. Florence-not-cached is a warning. Missing DensePose/IDM checkpoints or no
+CUDA is `NOT_READY`.
+
+## Layer 5.5 — GPU stage validation (Colab, real CUDA)
+
+After preflight is green, validate each real stage before the HTTP E2E harness:
+
+```bash
+cd ai
+python scripts/gpu_stage_validate.py --person <PERSON_IMAGE> --garment <GARMENT_IMAGE>
+```
+
+This is **GPU VERIFIED** only when run on a real T4 and prints
+`GPU STAGES VERIFIED` with `synthetic=false` on the full job stage.
 
 ## Layer 6 — real GPU E2E
 
@@ -109,7 +133,7 @@ python scripts/e2e_tryon.py --base-url https://<TUNNEL_URL> --token "<AI_SERVER_
 ```
 
 Success requires `status=completed` and `synthetic=false`.
-Do not call this layer validated until that happens.
+Do not call this layer **GPU VERIFIED** until that happens.
 
 ---
 

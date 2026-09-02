@@ -122,6 +122,27 @@ os.environ["SAM2_BUILD_CUDA"] = "0"
 
 ---
 
+## F2. Detectron2 for DensePose (required)
+
+The vendored `gradio_demo/detectron2/_C*.so` is built for an old Python and
+**must not** be used on Colab. Install detectron2 against the runtime torch
+instead:
+
+```python
+%cd /content/LAHI/ai
+!python scripts/detectron2_bootstrap.py
+# Copy the printed pip line, or:
+!python scripts/detectron2_bootstrap.py --install
+!python -c "import detectron2; print('detectron2', detectron2.__version__)"
+!python -c "import torch; assert torch.cuda.is_available(); print('torch still CUDA', torch.__version__)"
+```
+
+Also ensure the upstream IDM tree includes `configs/`, `preprocess/`, and
+`gradio_demo/` (DensePose Python package lives under `gradio_demo/densepose/`).
+Copy them from the official IDM-VTON repo if your weight bundle omitted them.
+
+---
+
 ## G. IDM-VTON source and checkpoint placement
 
 Not in git. Our loader expects this layout (or set `AI_IDM_ROOT` to `<MODEL_WEIGHT_LOCATION>` if it already matches):
@@ -131,6 +152,9 @@ ai/external/IDM-VTON/
   src/unet_hacked_tryon.py
   src/unet_hacked_garmnet.py
   src/tryon_pipeline.py
+  configs/densepose_rcnn_R_50_FPN_s1x.yaml
+  gradio_demo/          # detectron2 + densepose + utils_mask (Linux)
+  preprocess/           # openpose + humanparsing
   ckpt/scheduler/
   ckpt/vae/
   ckpt/unet/
@@ -140,10 +164,16 @@ ai/external/IDM-VTON/
   ckpt/text_encoder_2/
   ckpt/tokenizer/
   ckpt/tokenizer_2/
+  ckpt/densepose/model_final_162be9.pkl
+  ckpt/openpose/ckpts/body_pose_model.pth
+  ckpt/humanparsing/parsing_atr.onnx
+  ckpt/humanparsing/parsing_lip.onnx
 ```
 
-Sources come from the official IDM-VTON repository (`src/`). Checkpoints come
-from the official Hugging Face model `yisol/IDM-VTON`, not from this repo.
+Sources come from the official IDM-VTON repository. Diffusion checkpoints come
+from Hugging Face `yisol/IDM-VTON`. DensePose / OpenPose / parsing weights are
+part of the same upstream release (or the Gradio demo bundle)—**not** downloaded
+by `python serve.py`.
 
 ```bash
 # Sources (code only)
@@ -153,11 +183,15 @@ from the official Hugging Face model `yisol/IDM-VTON`, not from this repo.
 !cp /content/IDM-VTON-src/src/unet_hacked_tryon.py /content/LAHI/ai/external/IDM-VTON/src/
 !cp /content/IDM-VTON-src/src/unet_hacked_garmnet.py /content/LAHI/ai/external/IDM-VTON/src/
 !cp /content/IDM-VTON-src/src/tryon_pipeline.py /content/LAHI/ai/external/IDM-VTON/src/
+# Also copy configs/, preprocess/, gradio_demo/ from the upstream tree if missing.
 
 # Checkpoints (multi-GB). Use a Drive copy if you already downloaded them.
 # huggingface-cli is available after requirements-gpu.txt.
 !huggingface-cli download yisol/IDM-VTON --local-dir /content/LAHI/ai/external/IDM-VTON/ckpt
 ```
+
+DensePose is **required** for real inference (`pose_img`). OpenPose + parsing
+are preferred for agnostic clothing masks; SAM2 is only a fallback.
 
 If the Hugging Face snapshot already contains those subfolders at the repo
 root, the `--local-dir .../ckpt` command is correct. If you instead unpacked a
@@ -169,6 +203,16 @@ export AI_IDM_ROOT='<MODEL_WEIGHT_LOCATION>'
 
 Do not `pip install -r /content/IDM-VTON-src/requirements.txt`.
 
+Real inference call (Gradio-compatible) uses:
+
+- person RGB 768×1024
+- garment RGB 768×1024 (+ IP-Adapter image)
+- agnostic/inpaint mask 768×1024
+- DensePose `pose_img` tensor
+- `encode_prompt` for person + cloth captions
+- `strength=1.0`, fp16 on CUDA
+
+Sequential T4 lifecycle: Florence → mask → DensePose → IDM (unload between stages).
 ---
 
 ## H. Florence model / cache behavior
@@ -246,13 +290,15 @@ environment, so Colab `os.environ` wins.
 !python scripts/preflight.py
 ```
 
-Statuses:
+Statuses / verdict:
 
-| Status | Meaning | Exit |
-| --- | --- | --- |
-| `READY` | GPU mode, CUDA, imports, SAM2/IDM/pose paths, writable storage | 0 |
-| `WARNING` | Service can start; read the notes (e.g. Florence not cached yet) | 0 |
-| `NOT_READY` | Do not start the first E2E | 1 |
+| Status | Verdict | Meaning | Exit |
+| --- | --- | --- | --- |
+| `READY` | `READY FOR REAL VTO` | GPU mode, CUDA, packages, IDM+DensePose (+ mask path), pose, writable storage | 0 |
+| `WARNING` | often still `READY FOR REAL VTO` | Service can start; read notes (e.g. Florence not cached, SAM2 mask fallback) | 0 |
+| `NOT_READY` | `NOT READY` | Do not start the first E2E | 1 |
+
+Do not claim readiness from imports alone. Missing DensePose or IDM ckpts is a blocker.
 
 Florence-not-cached is a warning. Missing SAM2/IDM/pose files or no CUDA in
 GPU mode is `NOT_READY`.
@@ -321,6 +367,26 @@ python scripts/e2e_tryon.py --health-only --base-url https://<TUNNEL_URL> --toke
 `/v1/health` is public. Readiness, capabilities, jobs, and assets require the bearer token.
 
 Readiness means weights are present, not that models are already loaded.
+
+---
+
+## O2. GPU stage validation (before first E2E)
+
+After preflight prints `READY FOR REAL VTO`, run isolated real stages on CUDA:
+
+```bash
+%cd /content/LAHI/ai
+!python scripts/gpu_stage_validate.py \
+  --person <PERSON_IMAGE> \
+  --garment <GARMENT_IMAGE>
+```
+
+This sequentially validates agnostic mask (or SAM2 fallback), DensePose,
+Florence (optional with `--skip-florence`), IDM-VTON, and the full
+orchestrated job (`synthetic=false`). Outputs land under `ai/var/` and are not
+committed.
+
+Use `--json` for a machine-readable report with per-stage VRAM and timings.
 
 ---
 

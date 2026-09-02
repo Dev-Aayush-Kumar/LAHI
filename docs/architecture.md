@@ -132,34 +132,38 @@ Cancel cannot move a completed or failed job.
 
 `providers/registry.py` selects adapters from `AI_EXECUTION_MODE`:
 
-| Mode | Garment | Segmentation | Pose | Try-on |
-| --- | --- | --- | --- | --- |
-| `mock` (default) | mock-garment | mock-sam | mock-pose | mock-tryon (`synthetic=true`) |
-| `gpu` | Florence-2 | SAM2 | MediaPipe landmarker | IDM-VTON (`synthetic=false`) |
+| Mode | Garment | Segmentation | Pose | DensePose | Try-on |
+| --- | --- | --- | --- | --- | --- |
+| `mock` (default) | mock-garment | mock-sam | mock-pose | mock-pose | mock-tryon (`synthetic=true`) |
+| `gpu` | Florence-2 | agnostic mask (preferred) or SAM2 | MediaPipe | DensePose | IDM-VTON (`synthetic=false`) |
 
 GPU mode never substitutes mock output. A synthetic try-on result fails the
-job with `unexpected_synthetic`.
+job with `unexpected_synthetic`. Missing DensePose / checkpoints / CUDA OOM
+fail the job with structured codes (`densepose_weights_missing`, `gpu_oom`, …).
 
 ## Orchestration and sequential GPU lifecycle
 
 `pipelines/orchestrator.py` for `virtual_try_on`:
 
 1. Florence garment understanding → unload Florence
-2. SAM2 person segmentation (never applies a garment bbox to the person image) → unload SAM2
-3. Pose landmarker
-4. IDM-VTON generate → unload IDM
-5. Persist output asset; `empty_cache` between stages
+2. Mask: OpenPose + human-parsing agnostic mask when assets exist; otherwise SAM2 person mask fallback → unload
+3. MediaPipe pose landmarker (diagnostic; not consumed by IDM)
+4. DensePose `pose_img` → unload DensePose
+5. IDM-VTON generate (prompt embeds, cloth tensor, IP-Adapter garment, mask, DensePose) → unload IDM
+6. Persist output asset; `empty_cache` between stages
 
 Planning VRAM on a ~15 GB Tesla T4 is in `models/model_manager.py`. Florence +
-SAM2 + IDM-VTON are not assumed to stay resident together.
+DensePose + IDM-VTON are not assumed to stay resident together.
 
 ## Models
 
 | Model | How it is obtained | Runtime notes |
 | --- | --- | --- |
 | Florence-2 | Hugging Face `microsoft/Florence-2-base` | Lazy; first job may download; `attn_implementation="eager"` |
-| SAM2 2.1 tiny | Local `ai/weights/sam2/` + `import sam2` | Git install with `--no-deps` on Colab |
-| Pose | `ai/weights/pose_landmarker_lite.task` | MediaPipe Tasks |
+| OpenPose + human parsing | `ckpt/openpose`, `ckpt/humanparsing` under IDM root | Preferred agnostic inpaint mask for IDM |
+| SAM2 2.1 tiny | Local `ai/weights/sam2/` + `import sam2` | Mask fallback only when agnostic assets missing |
+| Pose | `ai/weights/pose_landmarker_lite.task` | MediaPipe Tasks (diagnostic / preprocessing jobs) |
+| DensePose | `ckpt/densepose` + configs + detectron2 | Required `pose_img` for IDM-VTON |
 | IDM-VTON | `ai/external/IDM-VTON/src` + `ckpt/` | Canonical loader: `models/idm_loader.py` |
 
 `ai/services/idm_loader.py` is a legacy import path and is not the runtime entry.

@@ -47,12 +47,12 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
         person_path = assets.path_for_provider(person_asset)
         garment_path = assets.path_for_provider(garment_asset)
 
-        checkpoint_job(request_id, progress=25)
+        checkpoint_job(request_id, progress=20)
         with stage(request_id, "garment_understanding"):
             garment = providers["garment"].analyze(garment_path, garment_asset)
         _release("florence")
 
-        checkpoint_job(request_id, progress=45)
+        checkpoint_job(request_id, progress=40)
         with stage(request_id, "segmentation"):
             mask = providers["segmentation"].segment(
                 person_path,
@@ -60,10 +60,17 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
                 person_asset,
             )
         _release("sam2")
+        _release("openpose")
 
-        checkpoint_job(request_id, progress=60)
+        # MediaPipe landmarks are diagnostic only; IDM-VTON needs DensePose.
+        checkpoint_job(request_id, progress=55)
         with stage(request_id, "pose"):
             pose = providers["pose"].detect(person_path, person_asset)
+
+        checkpoint_job(request_id, progress=65)
+        with stage(request_id, "densepose"):
+            densepose = providers["densepose"].detect(person_path, person_asset)
+        _release("densepose")
 
         checkpoint_job(request_id, progress=80)
         with stage(request_id, "tryon"):
@@ -72,7 +79,7 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
                 garment_path,
                 garment,
                 mask,
-                pose,
+                densepose,
             )
         _release("idm")
         generated = _quality_check(generated)
@@ -81,16 +88,22 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
                 "unexpected_synthetic",
                 "GPU mode produced a synthetic result. Refusing to mark the job completed.",
             )
+        if not is_mock_mode():
+            generated["execution"] = "real"
         generated["garment"] = garment.to_dict()
         generated["mask"] = {
             key: value for key, value in mask.items() if "path" not in key
         }
         generated["pose"] = pose
+        generated["densepose"] = {
+            key: value for key, value in densepose.items() if "path" not in key
+        }
         generated["output_asset_ids"] = [
             item
             for item in [
                 generated.get("output_asset_id"),
                 mask.get("mask_asset_id"),
+                densepose.get("pose_asset_id"),
             ]
             if item
         ]
@@ -112,11 +125,13 @@ def run_tryon_job(request_id: str, person_asset: str, garment_asset: str) -> Non
     except ProviderUnavailable as error:
         _fail_job(request_id, error.code, error.message)
     except Exception as error:
-        _fail_job(
-            request_id,
-            "tryon_failed",
-            str(error)[:400] or "Try-on processing failed.",
-        )
+        code = "tryon_failed"
+        message = str(error)[:400] or "Try-on processing failed."
+        lowered = message.lower()
+        if "out of memory" in lowered or ("cuda" in lowered and "memory" in lowered):
+            code = "gpu_oom"
+            message = "GPU out of memory during try-on. Models were unloaded; retry on a clear T4."
+        _fail_job(request_id, code, message)
 
 
 def run_garment_job(request_id: str, asset_id: str) -> None:

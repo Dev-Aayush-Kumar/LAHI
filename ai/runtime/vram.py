@@ -22,7 +22,7 @@ def snapshot() -> dict[str, Any]:
     allocated = int(torch.cuda.memory_allocated(index) / (1024 * 1024))
     reserved = int(torch.cuda.memory_reserved(index) / (1024 * 1024))
     total = int(torch.cuda.get_device_properties(index).total_memory / (1024 * 1024))
-    return {
+    info = {
         "cuda_available": True,
         "device": "cuda",
         "gpu_name": torch.cuda.get_device_name(index),
@@ -31,6 +31,16 @@ def snapshot() -> dict[str, Any]:
         "vram_total_mb": total,
         "vram_free_mb": max(total - reserved, 0),
     }
+    try:
+        info["vram_peak_allocated_mb"] = int(
+            torch.cuda.max_memory_allocated(index) / (1024 * 1024)
+        )
+        info["vram_peak_reserved_mb"] = int(
+            torch.cuda.max_memory_reserved(index) / (1024 * 1024)
+        )
+    except Exception:
+        pass
+    return info
 
 
 def empty_cache() -> None:

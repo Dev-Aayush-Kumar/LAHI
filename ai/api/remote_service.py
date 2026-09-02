@@ -19,10 +19,9 @@ from api.remote_contracts import (
 from api.upload_utils import save_asset_upload
 from models.model_manager import (
     gpu_diagnostics,
-    idm_weights_present,
+    idm_conditioning_ready,
     models,
     pose_weights_present,
-    sam2_weights_present,
 )
 from pipelines.orchestrator import run_garment_job, run_preprocessing_job, run_tryon_job
 from runtime.config import HOST, PORT, execution_mode, is_mock_mode
@@ -85,8 +84,17 @@ def service_diagnostics():
         "models": status,
         "providers": {
             "garment": "mock-garment" if is_mock_mode() else "florence",
-            "segmentation": "mock-sam" if is_mock_mode() else "sam2",
+            "segmentation": (
+                "mock-sam"
+                if is_mock_mode()
+                else (
+                    "idm-agnostic-mask"
+                    if status.get("weights", {}).get("agnostic_mask")
+                    else "sam2"
+                )
+            ),
             "pose": "mock-pose" if is_mock_mode() else "pose",
+            "densepose": "mock-pose" if is_mock_mode() else "densepose",
             "tryon": "mock-tryon" if is_mock_mode() else "idm-vton",
         },
     }
@@ -124,7 +132,7 @@ def capabilities():
             Capability(
                 name="virtual_try_on",
                 available=True,
-                ready=mock or (sam2_weights_present() and idm_weights_present()),
+                ready=mock or idm_conditioning_ready(),
                 model=DiagnosticModel(provider="mock-tryon" if mock else "idm-vton"),
             ),
         ],

@@ -50,8 +50,9 @@ cd ai && pytest
 cd ai && python scripts/preflight.py    # diagnostic; mock mode needs no GPU
 ```
 
-AI pytest: **43 passed** on this branch (layers 2–4). Real GPU inference has
-**not** been run. See [docs/TESTING.md](docs/TESTING.md).
+AI pytest: **47 passed** on this branch (layers 2–4, LOCAL VERIFIED). Real GPU
+inference has **not** been run (GPU READY, not GPU VERIFIED). See
+[docs/TESTING.md](docs/TESTING.md).
 
 ## First real GPU E2E
 
@@ -68,9 +69,11 @@ python scripts/e2e_tryon.py --base-url https://<TUNNEL_URL> --token "<AI_SERVER_
 | Asset | Location |
 | --- | --- |
 | Florence-2 | Hugging Face cache (`microsoft/Florence-2-base`); first GPU job may download |
-| SAM2 | `ai/weights/sam2/checkpoints/sam2.1_hiera_tiny.pt` + yaml under `configs/` |
+| SAM2 | `ai/weights/sam2/checkpoints/sam2.1_hiera_tiny.pt` + yaml under `configs/` (mask fallback) |
 | Pose | `ai/weights/pose_landmarker_lite.task` |
-| IDM-VTON | `ai/external/IDM-VTON/src` and `ckpt/` (or `AI_IDM_ROOT`) |
+| IDM-VTON | `ai/external/IDM-VTON/src` + `ckpt/` diffusion subfolders |
+| DensePose | `ckpt/densepose/model_final_162be9.pkl` + `configs/densepose_rcnn_R_50_FPN_s1x.yaml` |
+| OpenPose / parsing | `ckpt/openpose/`, `ckpt/humanparsing/` (preferred agnostic masks) |
 
 ## Secrets that must never be committed
 
